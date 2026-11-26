@@ -104,6 +104,14 @@
 <script>
 const protocol = new pmtiles.Protocol();
 maplibregl.addProtocol('pmtiles', protocol.tile);
+// count downloaded bytes ourselves: cross-origin resource timing hides response sizes
+let BYTES = 0;
+class CountingSource {
+  constructor(url) { this.s = new pmtiles.FetchSource(url); }
+  getKey() { return this.s.getKey(); }
+  async getBytes(o, l, sig, etag) { const r = await this.s.getBytes(o, l, sig, etag); BYTES += r.data.byteLength; return r; }
+}
+const archive = url => { const a = new pmtiles.PMTiles(new CountingSource(url)); protocol.add(a); return a; };
 // data: R2 when served from GitHub Pages, the local server otherwise; ?data=<url> overrides
 const R2 = 'https://pub-6906f03443584a13a66fc2c26a45f448.r2.dev/v1';
 const DATA = new URLSearchParams(location.search).get('data') || (location.hostname.endsWith('github.io') ? R2 : location.origin);
@@ -111,7 +119,8 @@ const DATA = new URLSearchParams(location.search).get('data') || (location.hostn
 // one source, each tile request goes to the part that holds its z14 column
 window.DATA = DATA;
 const B_CUTS = [8424, 8467];
-const B_PARTS = [0, 1, 2].map(i => new pmtiles.PMTiles(`${DATA}/nl-buildings-${i}.pmtiles`));
+const B_PARTS = [0, 1, 2].map(i => archive(`${DATA}/nl-buildings-${i}.pmtiles`));
+['nl-base','nl-context','nl-overview','nl-overview-r','nl-buildings-lo'].forEach(n => archive(`${DATA}/${n}.pmtiles`));
 maplibregl.addProtocol('nlb', async (params, abort) => {
   const [z, x, y] = params.url.slice(6).split('/').map(Number);
   const c = x >> (z - 14), part = B_CUTS.filter(k => c >= k).length;
@@ -350,9 +359,7 @@ setInterval(()=>{
   const z=map.getZoom(); $('#zm').textContent='z'+z.toFixed(1);
   const fe=$('#fps'); fe.textContent=frames+' fps'; fe.classList.toggle('bad', frames>0 && frames<30); frames=0;
   if(map.getLayer('b')) try{ const bs=z>=14||showB; $('#feat').textContent = bs ? 'здания '+map.queryRenderedFeatures({layers:z>=14?['b']:['bl']}).length+(z<14?` · клеток ${lastCells}`:'') : `клетки ${lastCells} / ${CELL_LIMIT}`; }catch(e){}
-  const bytes=performance.getEntriesByType('resource').filter(e=>e.name.includes('.pmtiles'))
-    .reduce((s,e)=>s+(e.encodedBodySize||e.transferSize||0),0);
-  $('#mb').textContent=(bytes/1e6).toFixed(1)+' MB';
+  $('#mb').textContent=NUM.format(BYTES/1e6)+'\u00A0МБ';
 },1000);
 performance.setResourceTimingBufferSize?.(5000);
 
