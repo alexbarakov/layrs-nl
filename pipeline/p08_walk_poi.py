@@ -1,7 +1,7 @@
 """Walk stop candidates per municipality -> viewer/poi/<GMcode>.json (+ index.json).
 
 Candidates: rijksmonumenten and buildings dated before 1850. One file per municipality is the unit
-the app downloads with a city pack. Row: [lon, lat, bag16, year, height, monument].
+the app downloads with a city pack. Row: [lon, lat, bag16, year, height, monument, year quality q from p12].
 usage: python pipeline/p08_walk_poi.py
 """
 import json, os
@@ -22,8 +22,9 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     index = {}
     for code, d in g.groupby("gm"):
-        rows = [[float(a), float(b), i[-16:], int(y), float(h), int(m)]
-                for a, b, i, y, h, m in zip(d.lon, d.lat, d.index, d.year, d.h, d.m)]
+        qs = d["q"] if "q" in d else [0] * len(d)
+        rows = [[float(a), float(b), i[-16:], int(y), float(h), int(m), int(q)]
+                for a, b, i, y, h, m, q in zip(d.lon, d.lat, d.index, d.year, d.h, d.m, qs)]
         with open(f"{OUT}/{code}.json", "w") as f:
             json.dump(rows, f, separators=(",", ":"))
         index[code] = len(rows)

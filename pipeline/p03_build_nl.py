@@ -6,7 +6,7 @@ then : tippecanoe -> out/nl-buildings.pmtiles (z14-15)
        grid overview (median year by footprint area) -> out/nl-overview.pmtiles (z6-13)
 usage: python p03_build_nl.py [--skip-tiles]
 """
-import glob, json, subprocess, sys, time
+import glob, json, os, subprocess, sys, time
 import numpy as np
 import shapely
 import pandas as pd
@@ -99,25 +99,36 @@ def pass1(rce):
 
 
 MON = None
+FIX = None
 
 
 def _init_b():
-    global MON
+    """Monument numbers, and the cleaned years from p12 (only buildings whose year or flag changed)."""
+    global MON, FIX
     p = pd.read_parquet("out/panden.parquet", columns=["m"])
     MON = p.m[p.m > 0]
+    FIX = pd.read_parquet("out/years.parquet") if os.path.exists("out/years.parquet") else None
 
 
 def stage_b(f):
     q = gpd.read_parquet(f)
     ms = MON.reindex(q.identificatie).fillna(0).astype(int).values
+    if FIX is not None:
+        f = FIX.reindex(q.identificatie)
+        q["year"] = f.year.fillna(pd.Series(q.year.values, index=f.index)).astype(int).values
+        qs = f.q.fillna(0).astype(int).values
+    else:
+        qs = np.zeros(len(q), dtype=int)
     ids = q.identificatie.str[-16:].astype("int64").values
     q = q.to_crs(4326)
     q["geometry"] = shapely.force_2d(q.geometry.values)
     out = []
-    for gid, y, h, m, g in zip(ids, q.year.values, q.h.values, ms, q.geometry.values):
+    for gid, y, h, m, fq, g in zip(ids, q.year.values, q.h.values, ms, qs, q.geometry.values):
         pr = {"id": int(gid), "y": int(y), "h": float(h)}
         if m:
             pr["m"] = int(m)
+        if fq:
+            pr["q"] = int(fq)     # 1 approx, 2 estimated, 3 RCE year, 4 RCE span
         out.append(json.dumps({"type": "Feature", "properties": pr,
                                "geometry": g.__geo_interface__}, separators=(",", ":")))
     return "\n".join(out) + "\n", len(out)

@@ -13,7 +13,7 @@ def main():
         p3.pass2(None)
     subprocess.run(["tippecanoe", "-o", "out/nl-buildings-lo.pmtiles", "--force", "-l", "b",
                     "-Z12", "-z13", "-P", "-q", "--drop-smallest-as-needed", "--simplification=4",
-                    "--no-tile-stats", "-y", "y", "-y", "h", "-y", "m", "-y", "id",
+                    "--no-tile-stats", "-y", "y", "-y", "h", "-y", "m", "-y", "id", "-y", "q",
                     "out/nl.geojsonl"], check=True)
     p3.log("lo pmtiles", os.path.getsize("out/nl-buildings-lo.pmtiles") / 1e6, "MB")
 

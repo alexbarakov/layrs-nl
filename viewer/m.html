@@ -144,6 +144,12 @@ const P = [[1600,'#4a1410'],[1666,'#8c1c13'],[1800,'#c0462b'],[1870,'#d97a2b'],[
            [1941,'#8e9f3c'],[1965,'#3f8f6b'],[1985,'#2c7391'],[2000,'#3a4f9a']];
 const period = ['step',['get','y'],'#4a1410', ...P.flatMap(([y,c],i)=>[y,(P[i+1]||[0,'#6a3f8f'])[1]])];
 const monColor = ['case',['has','m'],'#b8860b','#d9d7d0'];
+// approximate years (q 1 rounded, 2 estimated, 4 RCE span) are drawn paler: same hue, mixed with paper
+const mix = (hex, t=0.45) => { const c=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)), w=[244,243,239];
+  return '#'+c.map((v,i)=>Math.round(v+(w[i]-v)*t).toString(16).padStart(2,'0')).join(''); };
+const periodPale = ['step',['get','y'],mix('#4a1410'), ...P.flatMap(([y,c],i)=>[y,mix((P[i+1]||[0,'#6a3f8f'])[1])])];
+const periodQ = ['case',['in',['coalesce',['get','q'],0],['literal',[1,2,4]]],periodPale,period];
+const Q_TEXT = {1:'около', 2:'оценка по соседним домам', 3:'по реестру памятников RCE', 4:'по реестру RCE, приблизительно'};
 
 // basemap (Top10NL). ?base=0 switches it off to compare load and heat
 const BASE = new URLSearchParams(location.search).get('base') !== '0';
@@ -216,9 +222,9 @@ function makeMap(center, zoom, pitch, bearing){
         ...(BASE?baseRoads:[]),
         ...ctxBorder,
         {id:'bl',type:'fill-extrusion',source:'bl','source-layer':'b',minzoom:12,maxzoom:14,layout:{visibility:'none'},
-         paint:{'fill-extrusion-color':period,'fill-extrusion-height':['get','h'],'fill-extrusion-opacity':0.95}},
+         paint:{'fill-extrusion-color':periodQ,'fill-extrusion-height':['get','h'],'fill-extrusion-opacity':0.95}},
         {id:'b',type:'fill-extrusion',source:'b','source-layer':'b',minzoom:14,
-         paint:{'fill-extrusion-color':period,'fill-extrusion-height':['get','h'],'fill-extrusion-opacity':0.95}},
+         paint:{'fill-extrusion-color':periodQ,'fill-extrusion-height':['get','h'],'fill-extrusion-opacity':0.95}},
         ...(BASE?baseLabels:[]),
         ...ctxLabels]}
   });
@@ -316,7 +322,7 @@ function updateLod(){
 // layer mode
 document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('[data-mode]').forEach(x=>{ x.classList.toggle('on',x===b); x.setAttribute('aria-pressed',x===b); }); mode=b.dataset.mode; applyMode(); writeView(); });
-function applyMode(){ for(const l of ['b','bl']) map.setPaintProperty(l,'fill-extrusion-color', mode==='mon'?monColor:period); }
+function applyMode(){ for(const l of ['b','bl']) map.setPaintProperty(l,'fill-extrusion-color', mode==='mon'?monColor:periodQ); }
 
 // year: buildings built after the chosen year are hidden
 $('#year').oninput = e => { year=+e.target.value; $('#yv').textContent=year; applyYear(); writeView(); };
@@ -341,7 +347,8 @@ prLabel();
 function showCard(f){
   const p=f.properties, id=String(p.id).padStart(16,'0');
   $('#card').innerHTML = `<button class="x" aria-label="Закрыть">×</button>
-    <h3>${p.y>0?p.y:'год неизвестен'}</h3>
+    <h3>${p.y>0?(p.q==1?'около '+p.y:p.y):'год неизвестен'}</h3>
+    ${p.q>1?`<div class="meta">${Q_TEXT[p.q]}</div>`:''}
     <div class="meta"><span class="sw" style="background:${mode==='mon'?'#b8860b':period2(p.y)}"></span>высота ${NUM.format(p.h)}\u00A0м · BAG <span class="bag" translate="no">${id}</span></div>
     ${p.m?`<div style="margin-top:6px">Рийксмонумент №\u00A0<span translate="no">${p.m}</span> · <a href="https://monumentenregister.cultureelerfgoed.nl/monumenten/${p.m}" target="_blank" rel="noopener">реестр RCE</a></div>`:''}
     <div style="margin-top:6px"><a href="https://bagviewer.kadaster.nl/lvbag/bag-viewer/?objectId=${id}" target="_blank" rel="noopener">BAG viewer</a></div>`;

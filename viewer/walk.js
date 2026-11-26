@@ -76,7 +76,7 @@ async function loadPoi(center, radius) {
   const out = [];
   for (const c of codes) {
     if (!poiCache.has(c)) poiCache.set(c, fetch(`${DATA}/poi/${c}.json`).then(r => r.ok ? r.json() : []).catch(() => []));
-    for (const r of await poiCache.get(c)) out.push({ ll: [r[0], r[1]], id: r[2], y: r[3], h: r[4], m: r[5], gm: c });
+    for (const r of await poiCache.get(c)) out.push({ ll: [r[0], r[1]], id: r[2], y: r[3], h: r[4], m: r[5], q: r[6] || 0, gm: c });
   }
   return out;
 }
@@ -185,7 +185,7 @@ function drawWalk() {
 function openStop(i) {
   const s = W.stops[i];
   map.flyTo({ center: s.ll, zoom: Math.max(map.getZoom(), 16.5), duration: dur(900) });
-  showCard({ properties: { id: s.id, y: s.y, h: s.h, m: s.m } });
+  showCard({ properties: { id: s.id, y: s.y, h: s.h, m: s.m, q: s.q } });
 }
 
 // ---------- panel ----------
@@ -204,7 +204,7 @@ function render() {
     const walkM = W.routed ? W.len : W.len * DETOUR, min = Math.round(walkM / 1000 / PACE * 60 + W.stops.length * STOP_MIN);
     p.innerHTML = W.stops.length ? `<h3>Прогулка · ${W.stops.length} ${plural(W.stops.length, 'остановка', 'остановки', 'остановок')}</h3>
       <div class="sum">${W.routed ? '' : 'около '}${fmtM(walkM)} ${W.routed ? 'по улицам' : 'пешком, оценка по прямой'} · ${min} мин с остановками · ${W.loop ? 'круг' : 'в одну сторону'}</div>
-      <ol>${W.stops.map((s, i) => `<li><button data-i="${i}"><span class="n" aria-hidden="true">${i + 1}</span><span><span class="vh">Остановка ${i + 1}: </span>${s.y > 0 ? s.y : 'год неизвестен'}${s.m ? ' · памятник\u00A0' + s.m : ''}</span><small>${fmtM(W.legs ? W.legs[i] : dist(i ? W.stops[i - 1].ll : W.origin, s.ll) * DETOUR)}</small></button></li>`).join('')}</ol>
+      <ol>${W.stops.map((s, i) => `<li><button data-i="${i}"><span class="n" aria-hidden="true">${i + 1}</span><span><span class="vh">Остановка ${i + 1}: </span>${yearText(s)}${s.m ? ' · памятник\u00A0' + s.m : ''}</span><small>${fmtM(W.legs ? W.legs[i] : dist(i ? W.stops[i - 1].ll : W.origin, s.ll) * DETOUR)}</small></button></li>`).join('')}</ol>
       <div class="act"><button class="primary" id="w-go">Начать</button><a class="btnlink" id="w-gmaps" href="${gmaps(true)}" target="_blank" rel="noopener">Google Maps</a><button id="w-share">Ссылка</button><button id="w-edit">Изменить</button><button id="w-close">Закрыть</button></div>`
       : `<h3>Не из чего строить</h3><div class="sum">В этом радиусе нет зданий под выбранные интересы. Увеличьте длину, добавьте «Старые дома» или передвиньте старт.</div>
       <div class="act"><button class="primary" id="w-edit">Изменить</button><button id="w-close">Закрыть</button></div>`;
@@ -216,7 +216,7 @@ function render() {
       const here = GEO.pos, d = here ? dist(here, s.ll) : null, b = here ? bearing(here, s.ll) - map.getBearing() : 0;
       p.innerHTML = `<div class="lbl" style="margin-top:0">Остановка ${W.next + 1} из ${W.stops.length}</div>
         <div class="next"><span class="arrow" role="img" aria-label="${here ? 'Направление к остановке' : 'Направление неизвестно'}" style="transform:rotate(${b}deg)">${here ? '↑' : '•'}</span>
-          <div><h3 style="margin:0">${s.y > 0 ? s.y : 'год неизвестен'}${s.m ? ' · памятник' : ''}</h3>
+          <div><h3 style="margin:0">${yearText(s)}${s.m ? ' · памятник' : ''}</h3>
           <div class="sum" id="w-dist" style="margin:2px 0 0">${here ? fmtM(d) + ' по прямой' : 'Геопозиция выключена: переходите по кнопке «Дальше»'}</div></div></div>
         <div class="act"><button class="primary" id="w-next">${here ? 'Я на месте' : 'Дальше'}</button><button id="w-card">О здании</button><button id="w-stop">Закончить</button></div>`;
     }
@@ -225,6 +225,7 @@ function render() {
   $('#cross').hidden = !(W.state === 'setup' && W.start === 'center');
   sheetH();
 }
+const yearText = s => s.y > 0 ? (s.q === 1 || s.q === 2 || s.q === 4 ? 'около ' + s.y : String(s.y)) : 'год неизвестен';
 const plural = (n, a, b, c) => n % 10 === 1 && n % 100 !== 11 ? a : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? b : c;
 
 $('#walk').addEventListener('click', async e => {
@@ -323,7 +324,7 @@ async function readHash() {
   for (const [gm, id] of want) {
     if (!poiCache.has(gm)) poiCache.set(gm, fetch(`${DATA}/poi/${gm}.json`).then(r => r.ok ? r.json() : []).catch(() => []));
     const r = (await poiCache.get(gm)).find(r => r[2] === id);
-    if (r) stops.push({ ll: [r[0], r[1]], id: r[2], y: r[3], h: r[4], m: r[5], gm });
+    if (r) stops.push({ ll: [r[0], r[1]], id: r[2], y: r[3], h: r[4], m: r[5], q: r[6] || 0, gm });
   }
   W.stops = stops; W.len = [W.origin, ...stops.map(s => s.ll), ...(W.loop ? [W.origin] : [])].slice(1).reduce((s, p, i, a) => s + dist(i ? a[i - 1] : W.origin, p), 0);
   W.path = null; W.legs = null; W.routed = false;
