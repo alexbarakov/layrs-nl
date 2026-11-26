@@ -10,3 +10,4 @@ viewer/graph/
 .wrangler/
 __pycache__/
 .DS_Store
+viewer/layers/

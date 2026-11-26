@@ -77,6 +77,25 @@
   #toast button{margin-left:8px;min-height:28px;padding:3px 10px;background:#f4f3ef;color:#22201c;border:0}
   #card .bag{font-variant-numeric:tabular-nums}
   #cross{position:fixed;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;pointer-events:none}
+  #lens{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);border-radius:14px 14px 0 0;
+    padding:10px 12px calc(env(safe-area-inset-bottom,0px) + 10px);box-shadow:0 -6px 18px #0000000f;max-height:70vh;overflow:auto;overscroll-behavior:contain}
+  #lens h3{margin:2px 2px 4px;font-size:17px}
+  #lens .sum,#card .sum{color:var(--mute);margin:0 2px 8px}
+  #lens .lbl{font-size:12px;color:var(--mute);margin:12px 2px 4px}
+  .lenslist{list-style:none;margin:0;padding:0}
+  .lenslist li{border-top:1px solid var(--line)}
+  .lenslist li:first-child{border-top:0}
+  .lenslist button{all:unset;box-sizing:border-box;width:100%;display:flex;justify-content:space-between;gap:10px;padding:9px 2px;cursor:pointer}
+  .lenslist button:focus-visible{outline:2px solid var(--acc);outline-offset:-2px;border-radius:6px}
+  .lenslist button[aria-pressed="true"] span{font-weight:600}
+  .lenslist small{color:var(--mute);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .legend{list-style:none;margin:6px 0 8px;padding:0;display:grid;gap:4px}
+  .legend small{color:var(--mute)}
+  #lens .story,#card .story{font:14px/1.45 "Iowan Old Style",Georgia,serif;margin:6px 2px}
+  #lens .act{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  #lens .back{border:0;background:none;padding:4px 0;min-height:0;color:var(--acc)}
+  #card{max-height:55vh;overflow:auto;overscroll-behavior:contain}
+  #card .lenses{margin-top:8px;display:grid;gap:6px;border-top:1px solid var(--line);padding-top:8px}
   .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
 </style>
@@ -88,6 +107,7 @@
 <div id="toast" role="status" aria-live="polite" hidden></div>
 <svg id="cross" aria-hidden="true" hidden viewBox="0 0 26 26"><circle cx="13" cy="13" r="5" fill="none" stroke="#8c1c13" stroke-width="2.5"/><path d="M13 0v7M13 19v7M0 13h7M19 13h7" stroke="#8c1c13" stroke-width="2"/></svg>
 <div id="walk" hidden></div>
+<div id="lens" class="panel" hidden></div>
 <div id="sheet">
   <div id="where" aria-live="polite">—</div>
   <div class="row" id="cities"></div>
@@ -96,6 +116,7 @@
     <button data-mode="mon">Памятники</button>
     <button id="tilt">3D</button>
     <button id="pr">Чёткость 2×</button>
+    <button id="lensbtn" hidden aria-pressed="false">Линзы</button>
     <button id="walkbtn">Прогулка</button>
     <button id="bench">Замер пролёта</button>
   </div>
@@ -209,8 +230,8 @@ function makeMap(center, zoom, pitch, bearing){
            attribution:'Natural Earth, Kadaster BRK'},
         o:{type:'vector',url:'pmtiles://'+DATA+'/nl-overview.pmtiles'},
         or:{type:'raster',url:'pmtiles://'+DATA+'/nl-overview-r.pmtiles',tileSize:256},
-        bl:{type:'vector',url:'pmtiles://'+DATA+'/nl-buildings-lo.pmtiles'},
-        b:{type:'vector',tiles:['nlb://{z}/{x}/{y}'],minzoom:14,maxzoom:15,bounds:[3.2,50.7,7.3,53.6],
+        bl:{type:'vector',url:'pmtiles://'+DATA+'/nl-buildings-lo.pmtiles',promoteId:'id'},
+        b:{type:'vector',tiles:['nlb://{z}/{x}/{y}'],minzoom:14,maxzoom:15,promoteId:'id',bounds:[3.2,50.7,7.3,53.6],
            attribution:'3D BAG (CC BY 4.0), BAG, RCE'}},
       layers:[{id:'bg',type:'background',paint:{'background-color':SEA}},
         ...ctxLand,
@@ -321,8 +342,8 @@ function updateLod(){
 
 // layer mode
 document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{
-  document.querySelectorAll('[data-mode]').forEach(x=>{ x.classList.toggle('on',x===b); x.setAttribute('aria-pressed',x===b); }); mode=b.dataset.mode; applyMode(); writeView(); });
-function applyMode(){ for(const l of ['b','bl']) map.setPaintProperty(l,'fill-extrusion-color', mode==='mon'?monColor:periodQ); }
+  document.querySelectorAll('[data-mode]').forEach(x=>{ x.classList.toggle('on',x===b); x.setAttribute('aria-pressed',x===b); }); mode=b.dataset.mode; applyMode(); window.lensPaint && window.lensPaint(); writeView(); });
+function applyMode(){ if(window.LENS && LENS.active) return window.lensPaint(); for(const l of ['b','bl']) map.setPaintProperty(l,'fill-extrusion-color', mode==='mon'?monColor:periodQ); }
 
 // year: buildings built after the chosen year are hidden
 $('#year').oninput = e => { year=+e.target.value; $('#yv').textContent=year; applyYear(); writeView(); };
@@ -351,7 +372,8 @@ function showCard(f){
     ${p.q>1?`<div class="meta">${Q_TEXT[p.q]}</div>`:''}
     <div class="meta"><span class="sw" style="background:${mode==='mon'?'#b8860b':period2(p.y)}"></span>высота ${NUM.format(p.h)}\u00A0м · BAG <span class="bag" translate="no">${id}</span></div>
     ${p.m?`<div style="margin-top:6px">Рийксмонумент №\u00A0<span translate="no">${p.m}</span> · <a href="https://monumentenregister.cultureelerfgoed.nl/monumenten/${p.m}" target="_blank" rel="noopener">реестр RCE</a></div>`:''}
-    <div style="margin-top:6px"><a href="https://bagviewer.kadaster.nl/lvbag/bag-viewer/?objectId=${id}" target="_blank" rel="noopener">BAG viewer</a></div>`;
+    <div style="margin-top:6px"><a href="https://bagviewer.kadaster.nl/lvbag/bag-viewer/?objectId=${id}" target="_blank" rel="noopener">BAG viewer</a></div>
+    ${window.lensCard ? window.lensCard(id) : ''}`;
   $('#card').hidden=false; $('#card .x').onclick=()=>$('#card').hidden=true;
 }
 function period2(y){ let c='#4a1410'; for(let i=0;i<P.length;i++){ if(y>=P[i][0]) c=(P[i+1]||[0,'#6a3f8f'])[1]; } return c; }
@@ -395,4 +417,5 @@ $('#bench').onclick = async () => {
 </script>
 <script src="route.js"></script>
 <script src="walk.js"></script>
+<script src="lens.js"></script>
 </html>
