@@ -21,8 +21,14 @@ function bearing(a, b) {
   const x = Math.cos(rad(a[1])) * Math.sin(rad(b[1])) - Math.sin(rad(a[1])) * Math.cos(rad(b[1])) * Math.cos(rad(b[0] - a[0]));
   return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
 }
-const fmtM = m => m < 1000 ? `${Math.round(m / 10) * 10} м` : `${(m / 1000).toFixed(1).replace('.', ',')} км`;
-function toast(t, ms = 4000) { const e = $('#toast'); e.textContent = t; e.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => e.hidden = true, ms); }
+const KM = new Intl.NumberFormat('ru', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const fmtM = m => m < 1000 ? `${Math.round(m / 10) * 10}\u00A0м` : `${KM.format(m / 1000)}\u00A0км`;
+// toast with an optional action button (used for undo)
+function toast(t, ms = 4000, action) {
+  const e = $('#toast'); e.textContent = t; e.hidden = false;
+  if (action) { const b = document.createElement('button'); b.textContent = action.label; b.onclick = () => { e.hidden = true; action.fn(); }; e.appendChild(b); }
+  clearTimeout(toast.t); toast.t = setTimeout(() => e.hidden = true, ms);
+}
 
 // ---------- geolocation ----------
 const GEO = { pos: null, acc: null, watch: null, follow: false };
@@ -48,7 +54,7 @@ function startGeo(then) {
     GEO.pos = [p.coords.longitude, p.coords.latitude]; GEO.acc = p.coords.accuracy;
     drawMe();
     if (first) { first = false; then && then(GEO.pos); }
-    if (GEO.follow) map.easeTo({ center: GEO.pos, duration: 600 });
+    if (GEO.follow) map.easeTo({ center: GEO.pos, duration: dur(600) });
     onMove();
   }, err => {
     GEO.watch = null;
@@ -57,7 +63,7 @@ function startGeo(then) {
 }
 $('#locate').onclick = () => startGeo(pos => {
   GEO.follow = true; $('#locate').classList.add('follow');
-  map.flyTo({ center: pos, zoom: Math.max(map.getZoom(), 16), duration: 1200 });
+  map.flyTo({ center: pos, zoom: Math.max(map.getZoom(), 16), duration: dur(1200) });
 });
 map.on('dragstart', () => { GEO.follow = false; $('#locate').classList.remove('follow'); });
 
@@ -69,7 +75,7 @@ async function loadPoi(center, radius) {
   }).map(g => g.c);
   const out = [];
   for (const c of codes) {
-    if (!poiCache.has(c)) poiCache.set(c, fetch(`poi/${c}.json`).then(r => r.ok ? r.json() : []).catch(() => []));
+    if (!poiCache.has(c)) poiCache.set(c, fetch(`${DATA}/poi/${c}.json`).then(r => r.ok ? r.json() : []).catch(() => []));
     for (const r of await poiCache.get(c)) out.push({ ll: [r[0], r[1]], id: r[2], y: r[3], h: r[4], m: r[5], gm: c });
   }
   return out;
@@ -178,29 +184,28 @@ function drawWalk() {
 }
 function openStop(i) {
   const s = W.stops[i];
-  map.flyTo({ center: s.ll, zoom: Math.max(map.getZoom(), 16.5), duration: 900 });
+  map.flyTo({ center: s.ll, zoom: Math.max(map.getZoom(), 16.5), duration: dur(900) });
   showCard({ properties: { id: s.id, y: s.y, h: s.h, m: s.m } });
 }
 
 // ---------- panel ----------
-const chip = (label, on, attrs = '') => `<button class="${on ? 'on' : ''}" ${attrs}>${label}</button>`;
+const chip = (label, on, attrs = '') => `<button class="${on ? 'on' : ''}" aria-pressed="${on}" ${attrs}>${label}</button>`;
+const group = (id, label, body) => `<div class="lbl" id="${id}">${label}</div><div class="wrapchips" role="group" aria-labelledby="${id}">${body}</div>`;
 function render() {
   const p = $('#walk');
   if (W.state === 'setup') {
     p.innerHTML = `<h3>Прогулка</h3>
-      <div class="lbl">Откуда</div>
-      <div class="wrapchips">${chip('Моё место', W.start === 'me', 'data-start="me"')}${chip('Центр карты', W.start === 'center', 'data-start="center"')}</div>
-      <div class="lbl">Что смотреть</div>
-      <div class="wrapchips">${chip('Памятники', W.want.has('mon'), 'data-want="mon"')}${chip('Старые дома', W.want.has('old'), 'data-want="old"')}${chip('Разные эпохи', W.want.has('eras'), 'data-want="eras"')}${chip('Высотные', W.want.has('tall'), 'data-want="tall"')}</div>
-      <div class="lbl">Длина пешком</div>
-      <div class="wrapchips">${[1, 2, 3, 5].map(k => chip(k + ' км', W.km === k, `data-km="${k}"`)).join('')}${chip('Круг', W.loop, 'data-loop="1"')}${chip('В одну сторону', !W.loop, 'data-loop="0"')}</div>
+      ${group('w-from', 'Откуда', chip('Моё место', W.start === 'me', 'data-start="me"') + chip('Центр карты', W.start === 'center', 'data-start="center"'))}
+      ${group('w-what', 'Что смотреть', chip('Памятники', W.want.has('mon'), 'data-want="mon"') + chip('Старые дома', W.want.has('old'), 'data-want="old"') + chip('Разные эпохи', W.want.has('eras'), 'data-want="eras"') + chip('Высотные', W.want.has('tall'), 'data-want="tall"'))}
+      ${group('w-len', 'Длина пешком', [1, 2, 3, 5].map(k => chip(k + '\u00A0км', W.km === k, `data-km="${k}"`)).join(''))}
+      ${group('w-shape', 'Форма', chip('Круг', W.loop, 'data-loop="1"') + chip('В одну сторону', !W.loop, 'data-loop="0"'))}
       <div class="act"><button class="primary" id="w-build">Построить</button><button id="w-close">Закрыть</button></div>`;
   } else if (W.state === 'result') {
     const walkM = W.routed ? W.len : W.len * DETOUR, min = Math.round(walkM / 1000 / PACE * 60 + W.stops.length * STOP_MIN);
     p.innerHTML = W.stops.length ? `<h3>Прогулка · ${W.stops.length} ${plural(W.stops.length, 'остановка', 'остановки', 'остановок')}</h3>
       <div class="sum">${W.routed ? '' : 'около '}${fmtM(walkM)} ${W.routed ? 'по улицам' : 'пешком, оценка по прямой'} · ${min} мин с остановками · ${W.loop ? 'круг' : 'в одну сторону'}</div>
-      <ol>${W.stops.map((s, i) => `<li data-i="${i}"><span class="n">${i + 1}</span><span>${s.y > 0 ? s.y : 'год неизвестен'}${s.m ? ' · памятник ' + s.m : ''}</span><small>${fmtM(W.legs ? W.legs[i] : dist(i ? W.stops[i - 1].ll : W.origin, s.ll) * DETOUR)}</small></li>`).join('')}</ol>
-      <div class="act"><button class="primary" id="w-go">Начать</button><button id="w-gmaps">Google Maps</button><button id="w-share">Ссылка</button><button id="w-edit">Изменить</button><button id="w-close">Закрыть</button></div>`
+      <ol>${W.stops.map((s, i) => `<li><button data-i="${i}"><span class="n" aria-hidden="true">${i + 1}</span><span><span class="vh">Остановка ${i + 1}: </span>${s.y > 0 ? s.y : 'год неизвестен'}${s.m ? ' · памятник\u00A0' + s.m : ''}</span><small>${fmtM(W.legs ? W.legs[i] : dist(i ? W.stops[i - 1].ll : W.origin, s.ll) * DETOUR)}</small></button></li>`).join('')}</ol>
+      <div class="act"><button class="primary" id="w-go">Начать</button><a class="btnlink" id="w-gmaps" href="${gmaps(true)}" target="_blank" rel="noopener">Google Maps</a><button id="w-share">Ссылка</button><button id="w-edit">Изменить</button><button id="w-close">Закрыть</button></div>`
       : `<h3>Не из чего строить</h3><div class="sum">В этом радиусе нет зданий под выбранные интересы. Увеличьте длину, добавьте «Старые дома» или передвиньте старт.</div>
       <div class="act"><button class="primary" id="w-edit">Изменить</button><button id="w-close">Закрыть</button></div>`;
   } else if (W.state === 'go') {
@@ -210,9 +215,9 @@ function render() {
     } else {
       const here = GEO.pos, d = here ? dist(here, s.ll) : null, b = here ? bearing(here, s.ll) - map.getBearing() : 0;
       p.innerHTML = `<div class="lbl" style="margin-top:0">Остановка ${W.next + 1} из ${W.stops.length}</div>
-        <div class="next"><span class="arrow" style="transform:rotate(${b}deg)">${here ? '↑' : '•'}</span>
+        <div class="next"><span class="arrow" role="img" aria-label="${here ? 'Направление к остановке' : 'Направление неизвестно'}" style="transform:rotate(${b}deg)">${here ? '↑' : '•'}</span>
           <div><h3 style="margin:0">${s.y > 0 ? s.y : 'год неизвестен'}${s.m ? ' · памятник' : ''}</h3>
-          <div class="sum" style="margin:2px 0 0">${here ? fmtM(d) + ' по прямой' : 'Геопозиция выключена: переходите по кнопке «Дальше»'}</div></div></div>
+          <div class="sum" id="w-dist" style="margin:2px 0 0">${here ? fmtM(d) + ' по прямой' : 'Геопозиция выключена: переходите по кнопке «Дальше»'}</div></div></div>
         <div class="act"><button class="primary" id="w-next">${here ? 'Я на месте' : 'Дальше'}</button><button id="w-card">О здании</button><button id="w-stop">Закончить</button></div>`;
     }
   }
@@ -223,7 +228,8 @@ function render() {
 const plural = (n, a, b, c) => n % 10 === 1 && n % 100 !== 11 ? a : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? b : c;
 
 $('#walk').addEventListener('click', async e => {
-  const t = e.target.closest('button, li'); if (!t) return;
+  if (e.target.closest('#w-gmaps')) { if (W.stops.length > (W.loop ? 9 : 10)) toast('Google Maps принимает до 9 промежуточных точек: в ссылке первые 9.'); return; }
+  const t = e.target.closest('button'); if (!t) return;
   const d = t.dataset;
   if (d.start) { W.start = d.start; if (d.start === 'me') startGeo(); }
   else if (d.want) { W.want.has(d.want) ? W.want.delete(d.want) : W.want.add(d.want); if (!W.want.size) W.want.add('mon'); }
@@ -231,13 +237,16 @@ $('#walk').addEventListener('click', async e => {
   else if (d.loop) W.loop = d.loop === '1';
   else if (d.i !== undefined) return openStop(+d.i);
   else if (t.id === 'w-build') return build();
-  else if (t.id === 'w-close') { W.state = 'off'; W.stops = []; drawWalk(); history.replaceState(null, '', location.pathname + location.search); }
+  else if (t.id === 'w-close') {
+    const kept = W.state === 'result' || W.state === 'go' ? { ...W, stops: [...W.stops] } : null;
+    W.state = 'off'; W.stops = []; drawWalk(); history.replaceState(null, '', location.pathname + location.search);
+    if (kept && kept.stops.length) toast('Маршрут закрыт', 6000, { label: 'Вернуть', fn: () => { Object.assign(W, kept, { state: 'result' }); render(); drawWalk(); writeHash(); } });
+  }
   else if (t.id === 'w-edit') W.state = 'setup';
   else if (t.id === 'w-go') { W.state = 'go'; W.next = 0; if (window.isSecureContext) startGeo(); openStop(0); drawWalk(); }
   else if (t.id === 'w-next') { W.next++; drawWalk(); if (W.stops[W.next]) openStop(W.next); }
   else if (t.id === 'w-card') return openStop(W.next);
   else if (t.id === 'w-stop') W.state = 'result';
-  else if (t.id === 'w-gmaps') return window.open(gmaps(), '_blank', 'noopener');
   else if (t.id === 'w-share') return share();
   render();
 });
@@ -268,24 +277,31 @@ function fit() {
   if (!W.stops.length) return;
   const b = new maplibregl.LngLatBounds(W.origin, W.origin);
   W.stops.forEach(s => b.extend(s.ll));
-  map.fitBounds(b, { padding: { top: 90, left: 40, right: 60, bottom: $('#walk').offsetHeight + 30 }, pitch: 0, bearing: 0, duration: 900, maxZoom: 17 });
+  map.fitBounds(b, { padding: { top: 90 + (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0), left: 40, right: 60, bottom: $('#walk').offsetHeight + 30 }, pitch: 0, bearing: 0, duration: dur(900), maxZoom: 17 });
 }
 
 // arrival: the next stop counts as visited within ARRIVE_M metres
+// position and rotation update only the arrow and the distance; the panel is rebuilt when the stop changes
+function updateGo() {
+  const s = W.stops[W.next], a = $('#walk .arrow'), d = $('#w-dist');
+  if (!s || !GEO.pos || !a || !d || a.textContent !== '↑') return render();
+  a.style.transform = `rotate(${bearing(GEO.pos, s.ll) - map.getBearing()}deg)`;
+  d.textContent = fmtM(dist(GEO.pos, s.ll)) + ' по прямой';
+}
 function onMove() {
   if (W.state !== 'go' || !GEO.pos) return;
   const s = W.stops[W.next];
-  if (s && dist(GEO.pos, s.ll) <= ARRIVE_M) { navigator.vibrate?.(80); W.next++; drawWalk(); toast(`Остановка ${W.next} пройдена`); }
-  render();
+  if (s && dist(GEO.pos, s.ll) <= ARRIVE_M) { navigator.vibrate?.(80); W.next++; drawWalk(); toast(`Остановка ${W.next} пройдена`); render(); return; }
+  updateGo();
 }
-map.on('rotate', () => W.state === 'go' && render());
+map.on('rotate', () => W.state === 'go' && updateGo());
 
 // ---------- export and share ----------
-function gmaps() {
+function gmaps(quiet) {
   const ll = p => `${p[1].toFixed(6)},${p[0].toFixed(6)}`;
   const pts = W.stops.map(s => s.ll), dest = W.loop ? W.origin : pts[pts.length - 1];
   const way = (W.loop ? pts : pts.slice(0, -1)).slice(0, 9);
-  if (W.stops.length > (W.loop ? 9 : 10)) toast('Google Maps принимает до 9 промежуточных точек: в ссылке первые 9.');
+  if (!quiet && W.stops.length > (W.loop ? 9 : 10)) toast('Google Maps принимает до 9 промежуточных точек: в ссылке первые 9.');
   return `https://www.google.com/maps/dir/?api=1&travelmode=walking&origin=${ll(W.origin)}&destination=${ll(dest)}&waypoints=${encodeURIComponent(way.map(ll).join('|'))}`;
 }
 function writeHash() {
@@ -305,7 +321,7 @@ async function readHash() {
   const want = m[4].split(',').map(x => x.split('.'));
   const stops = [];
   for (const [gm, id] of want) {
-    if (!poiCache.has(gm)) poiCache.set(gm, fetch(`poi/${gm}.json`).then(r => r.ok ? r.json() : []).catch(() => []));
+    if (!poiCache.has(gm)) poiCache.set(gm, fetch(`${DATA}/poi/${gm}.json`).then(r => r.ok ? r.json() : []).catch(() => []));
     const r = (await poiCache.get(gm)).find(r => r[2] === id);
     if (r) stops.push({ ll: [r[0], r[1]], id: r[2], y: r[3], h: r[4], m: r[5], gm });
   }

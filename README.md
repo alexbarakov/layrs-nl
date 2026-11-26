@@ -7,8 +7,11 @@ the same idea, the whole country, used on the street rather than at a desk.
 This repository holds the data pipeline, a mobile test stand (MapLibre GL JS in the browser) and the app design.
 The native app (Expo + MapLibre Native) comes next.
 
-- Design: [`docs/design/`](docs/design/index.html): structure, screens, open decisions
-- Test stand: [`viewer/m.html`](viewer/m.html)
+- Test stand on a phone: https://alexbarakov.github.io/layrs-nl/viewer/m.html
+- Design: https://alexbarakov.github.io/layrs-nl/docs/design/ (structure, screens, open decisions)
+
+The page is served by GitHub Pages; tiles, walk stops and pedestrian graphs come from a Cloudflare R2 bucket
+(`viewer/m.html`, constant `R2`). Served from anywhere else, the stand reads data from its own origin; `?data=<url>` overrides.
 
 ## How it works
 
@@ -28,7 +31,11 @@ open data ──► pipeline/ (Python) ──► out/*.pmtiles + viewer/poi, vie
 | `p08_walk_poi` | Walk stop candidates per municipality: monuments and buildings before 1850 | `viewer/poi/<GM>.json` |
 | `p09_walk_graph` | Pedestrian graph per municipality from Top10NL road centrelines | `viewer/graph/<GM>.json` |
 
+| `p10_split_buildings` | Splits the z14–15 buildings into three west-to-east parts under the 300 MB upload limit; the stand routes each tile to its part | `nl-buildings-{0,1,2}.pmtiles` |
+
 `p02_build_pmtiles` is the earlier one-province trial build.
+
+Upload to R2 (bucket `layrs-nl`, prefix `v1/`): `npx wrangler r2 object put layrs-nl/v1/<file> --file <file> --remote`.
 
 Sizes for the whole country: buildings 670 MB (z14–15) + 176 MB (z12–13), basemap 256 MB, overview 34 + 6 MB.
 A municipality pack is a few MB: Delft buildings 3.4 MB, walk stops 57 KB, pedestrian graph 1.3 MB.
@@ -42,6 +49,7 @@ uv run python pipeline/p01_fetch_3dbag.py data/raw/tiles_nl.csv 16   # tile list
 uv run python pipeline/p03_build_nl.py
 # Top10NL GeoPackage (11 GB) into data/raw/top10nl.gpkg, then
 for s in p04_build_base p05_build_lowzoom p06_build_context p07_overview_raster p08_walk_poi p09_walk_graph; do uv run python pipeline/$s.py; done
+uv run python pipeline/p10_split_buildings.py
 ln -s ../out/*.pmtiles viewer/
 python3 viewer/serve.py 8660 viewer           # http://localhost:8660/m.html
 ```

@@ -22,7 +22,7 @@ window.Router = (() => {
     return { N, lon, lat, start: deg, to, via, e: j.e, g: j.g };
   }
   function load(code) {
-    if (!cache.has(code)) cache.set(code, fetch(`graph/${code}.json`).then(r => r.ok ? r.json() : null).then(j => j && parse(j)).catch(() => null));
+    if (!cache.has(code)) cache.set(code, fetch(`${window.DATA || location.origin}/graph/${code}.json`).then(r => r.ok ? r.json() : null).then(j => j && parse(j)).catch(() => null));
     return cache.get(code);
   }
   function snap(G, p) {

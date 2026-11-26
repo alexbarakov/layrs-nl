@@ -1,7 +1,8 @@
 <!doctype html>
 <html lang="ru">
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#fffdf8">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>LAYRS NL · стенд</title>
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css">
@@ -26,7 +27,12 @@
   button{font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:999px;
     padding:7px 12px;white-space:nowrap;min-height:34px}
   button.on{background:var(--ink);color:var(--card);border-color:var(--ink)}
-  button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+  :root{--sat:env(safe-area-inset-top,0px)}
+  button{touch-action:manipulation;cursor:pointer;transition:background-color .15s,color .15s,border-color .15s}
+  button:active{background:var(--line)}
+  button.on:active,#walk .primary:active{opacity:.85}
+  @media (hover:hover){button:hover{border-color:var(--mute)}}
+  button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
   .yr{display:flex;align-items:center;gap:10px;margin-top:10px}
   .yr input{flex:1;accent-color:var(--acc)}
   .yr b{font-variant-numeric:tabular-nums;min-width:3.2em;text-align:right}
@@ -48,7 +54,7 @@
   #toast{position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top,0px) + 74px);margin-right:54px;background:#22201ce6;color:#f4f3ef;
     border-radius:10px;padding:9px 12px;font-size:13px}
   #walk{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);border-radius:14px 14px 0 0;
-    padding:10px 12px calc(env(safe-area-inset-bottom,0px) + 10px);box-shadow:0 -6px 18px #0000000f;max-height:62vh;overflow:auto}
+    padding:10px 12px calc(env(safe-area-inset-bottom,0px) + 10px);box-shadow:0 -6px 18px #0000000f;max-height:62vh;overflow:auto;overscroll-behavior:contain}
   #walk h3{margin:2px 2px 6px;font-size:17px}
   #walk .lbl{font-size:12px;color:var(--mute);margin:10px 2px 5px}
   #walk .wrapchips{display:flex;gap:6px;flex-wrap:wrap}
@@ -61,21 +67,29 @@
   #walk li small{color:var(--mute);font-variant-numeric:tabular-nums}
   #walk .act{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
   #walk .primary{background:var(--acc);color:#fff;border-color:var(--acc)}
+  #walk .btnlink{display:inline-flex;align-items:center;min-height:34px;padding:7px 12px;border:1px solid var(--line);border-radius:999px;background:var(--paper);color:var(--ink);text-decoration:none;touch-action:manipulation}
   #walk .next{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center}
   #walk .arrow{width:44px;height:44px;border-radius:50%;background:var(--paper);display:grid;place-items:center;font-size:22px;transition:transform .3s}
+  @media (prefers-reduced-motion:reduce){#walk .arrow,button{transition:none}}
+  #walk li button{all:unset;display:contents;cursor:pointer}
+  #walk li:has(button:focus-visible){outline:2px solid var(--acc);outline-offset:-2px;border-radius:6px}
+  #log button{margin-top:8px;background:#f4f3ef;color:#22201c}
+  #toast button{margin-left:8px;min-height:28px;padding:3px 10px;background:#f4f3ef;color:#22201c;border:0}
+  #card .bag{font-variant-numeric:tabular-nums}
   #cross{position:fixed;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;pointer-events:none}
+  .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
 </style>
 <div id="map"></div>
 <div id="hud"><span id="fps">— fps</span><span id="feat">—</span><span id="mb">0 MB</span><span id="dpr"></span><span id="zm"></span></div>
-<div id="log" hidden></div>
+<div id="log" role="status" aria-live="polite" hidden></div>
 <div id="card" hidden></div>
-<button id="locate" aria-label="Моё место"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l7 19-7-4-7 4z" transform="rotate(45 12 12)"/></svg></button>
-<div id="toast" hidden></div>
-<svg id="cross" hidden viewBox="0 0 26 26"><circle cx="13" cy="13" r="5" fill="none" stroke="#8c1c13" stroke-width="2.5"/><path d="M13 0v7M13 19v7M0 13h7M19 13h7" stroke="#8c1c13" stroke-width="2"/></svg>
+<button id="locate" aria-label="Моё место"><svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l7 19-7-4-7 4z" transform="rotate(45 12 12)"/></svg></button>
+<div id="toast" role="status" aria-live="polite" hidden></div>
+<svg id="cross" aria-hidden="true" hidden viewBox="0 0 26 26"><circle cx="13" cy="13" r="5" fill="none" stroke="#8c1c13" stroke-width="2.5"/><path d="M13 0v7M13 19v7M0 13h7M19 13h7" stroke="#8c1c13" stroke-width="2"/></svg>
 <div id="walk" hidden></div>
 <div id="sheet">
-  <div id="where">—</div>
+  <div id="where" aria-live="polite">—</div>
   <div class="row" id="cities"></div>
   <div class="row">
     <button data-mode="periods" class="on">Периоды</button>
@@ -85,11 +99,28 @@
     <button id="walkbtn">Прогулка</button>
     <button id="bench">Замер пролёта</button>
   </div>
-  <div class="yr"><span>Год</span><input id="year" type="range" min="1300" max="2026" value="2026" aria-label="Год"><b id="yv">2026</b></div>
+  <div class="yr"><label for="year">Год</label><input id="year" name="year" type="range" min="1300" max="2026" value="2026"><b id="yv">2026</b></div>
 </div>
 <script>
 const protocol = new pmtiles.Protocol();
 maplibregl.addProtocol('pmtiles', protocol.tile);
+// data: R2 when served from GitHub Pages, the local server otherwise; ?data=<url> overrides
+const R2 = 'https://pub-6906f03443584a13a66fc2c26a45f448.r2.dev/v1';
+const DATA = new URLSearchParams(location.search).get('data') || (location.hostname.endsWith('github.io') ? R2 : location.origin);
+// z14-15 buildings are split west to east into parts under the upload limit (pipeline/p10_split_buildings.py);
+// one source, each tile request goes to the part that holds its z14 column
+window.DATA = DATA;
+const B_CUTS = [8424, 8467];
+const B_PARTS = [0, 1, 2].map(i => new pmtiles.PMTiles(`${DATA}/nl-buildings-${i}.pmtiles`));
+maplibregl.addProtocol('nlb', async (params, abort) => {
+  const [z, x, y] = params.url.slice(6).split('/').map(Number);
+  const c = x >> (z - 14), part = B_CUTS.filter(k => c >= k).length;
+  const r = await B_PARTS[part].getZxy(z, x, y, abort.signal);
+  return { data: r ? new Uint8Array(r.data) : new Uint8Array() };
+});
+const RM = matchMedia('(prefers-reduced-motion: reduce)');
+const dur = ms => RM.matches ? 0 : ms;
+const NUM = new Intl.NumberFormat('ru', { maximumFractionDigits: 1 });
 const $ = s => document.querySelector(s);
 
 // [label, lon, lat, zoom, municipality code]; the chip lights up while that municipality is under the map centre
@@ -157,14 +188,14 @@ function makeMap(center, zoom, pitch, bearing){
     style:{version:8,
       glyphs:'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
       sources:{
-        ...(BASE?{base:{type:'vector',url:'pmtiles://'+location.origin+'/nl-base.pmtiles',
+        ...(BASE?{base:{type:'vector',url:'pmtiles://'+DATA+'/nl-base.pmtiles',
            attribution:'Kadaster BRT Top10NL (CC BY 4.0)'}}:{}),
-        ctx:{type:'vector',url:'pmtiles://'+location.origin+'/nl-context.pmtiles',
+        ctx:{type:'vector',url:'pmtiles://'+DATA+'/nl-context.pmtiles',
            attribution:'Natural Earth, Kadaster BRK'},
-        o:{type:'vector',url:'pmtiles://'+location.origin+'/nl-overview.pmtiles'},
-        or:{type:'raster',url:'pmtiles://'+location.origin+'/nl-overview-r.pmtiles',tileSize:256},
-        bl:{type:'vector',url:'pmtiles://'+location.origin+'/nl-buildings-lo.pmtiles'},
-        b:{type:'vector',url:'pmtiles://'+location.origin+'/nl-buildings.pmtiles',
+        o:{type:'vector',url:'pmtiles://'+DATA+'/nl-overview.pmtiles'},
+        or:{type:'raster',url:'pmtiles://'+DATA+'/nl-overview-r.pmtiles',tileSize:256},
+        bl:{type:'vector',url:'pmtiles://'+DATA+'/nl-buildings-lo.pmtiles'},
+        b:{type:'vector',tiles:['nlb://{z}/{x}/{y}'],minzoom:14,maxzoom:15,bounds:[3.2,50.7,7.3,53.6],
            attribution:'3D BAG (CC BY 4.0), BAG, RCE'}},
       layers:[{id:'bg',type:'background',paint:{'background-color':SEA}},
         ...ctxLand,
@@ -192,7 +223,18 @@ function makeMap(center, zoom, pitch, bearing){
   return m;
 }
 let frames = 0;
-let map = makeMap([4.3571,52.0116],15.3,55,-20);
+// view in the URL: ?v=lon,lat,zoom,pitch,bearing&mode=mon&year=1700 (the walk lives in the hash)
+const V = (Q.get('v')||'').split(',').map(Number);
+if(Q.get('mode')==='mon') mode='mon';
+if(+Q.get('year')) year=Math.min(2026,Math.max(1300,+Q.get('year')));
+let map = V.length===5 && V.every(Number.isFinite) ? makeMap([V[0],V[1]],V[2],V[3],V[4]) : makeMap([4.3571,52.0116],15.3,55,-20);
+function writeView(){
+  const q=new URLSearchParams(location.search), c=map.getCenter();
+  q.set('v',[c.lng.toFixed(5),c.lat.toFixed(5),map.getZoom().toFixed(2),Math.round(map.getPitch()),Math.round(map.getBearing())].join(','));
+  mode==='mon'?q.set('mode','mon'):q.delete('mode'); year<2026?q.set('year',year):q.delete('year');
+  history.replaceState(null,'',location.pathname+'?'+q.toString().replace(/%2C/g,',')+location.hash);
+}
+map.on('moveend',writeView);
 window.map = map;
 
 // ---- where am I: municipality under the map centre drives the chips ----
@@ -215,20 +257,24 @@ let here = null;   // current municipality (or null outside NL)
 function chip(label, active, onclick, extra){
   const b=document.createElement('button'); b.textContent=label; b.classList.toggle('on',active); b.onclick=onclick;
   if(extra) b.classList.add(extra); return b; }
-function flyCity([n,lon,lat,z]){ map.flyTo({center:[lon,lat],zoom:z||15.3,pitch:z?0:55,bearing:z?0:-20,duration:2500}); }
+function flyCity([n,lon,lat,z]){ map.flyTo({center:[lon,lat],zoom:z||15.3,pitch:z?0:55,bearing:z?0:-20,duration:dur(2500)}); }
 function updateWhere(){
   if(!map || !GEM.length) return;
   const c=map.getCenter(), z=map.getZoom();
   here = gemAt(c.lng,c.lat) || null;
   // chips: the country view is "on" when zoomed out; a city chip is "on" while its municipality is under the centre
   const country = z < 9;
-  const row=$('#cities'); row.innerHTML='';
+  const row=$('#cities');
   const known = here && CITIES.some(k=>k[4]===here.c);
-  if(here && !known && !country){
-    // municipality we have no preset for: show it as the active chip, tap = fit it on screen
-    row.appendChild(chip(here.n, true, ()=>{ const b=here.bbox; map.fitBounds([[b[0],b[1]],[b[2],b[3]]],{padding:40,pitch:0}); }, 'here'));
+  const extra = here && !known && !country ? here : null;
+  // rebuild only when the chip set changes, so a focused chip keeps focus while the map moves
+  if(row.dataset.key !== (extra?extra.c:'') || !row.children.length){
+    row.dataset.key = extra?extra.c:''; row.innerHTML='';
+    if(extra){ const g=extra; row.appendChild(chip(g.n, true, ()=>{ const b=g.bbox; map.fitBounds([[b[0],b[1]],[b[2],b[3]]],{padding:40,pitch:0,duration:dur(1200)}); }, 'here')); }
+    CITIES.forEach(k=>{ const b=chip(k[0], false, ()=>flyCity(k)); b.dataset.code=k[4]; row.appendChild(b); });
   }
-  CITIES.forEach(k=>row.appendChild(chip(k[0], k[4]==='NL' ? country : (!country && here && here.c===k[4]), ()=>flyCity(k))));
+  row.querySelectorAll('button[data-code]').forEach(b=>{ const c=b.dataset.code, on = c==='NL' ? country : (!country && here && here.c===c);
+    b.classList.toggle('on', !!on); b.setAttribute('aria-pressed', on?'true':'false'); });
   const RU={BEL:'Бельгия',DEU:'Германия',LUX:'Люксембург',FRA:'Франция',GBR:'Великобритания',DNK:'Дания'};
   const k = !here && map.getLayer('land') ? map.queryRenderedFeatures(map.project(c),{layers:['land']})[0]?.properties.k : null;
   $('#where').textContent = country ? 'Нидерланды' : here ? `${here.n} · ${here.p}` : RU[k] ? `${RU[k]} · данных о зданиях нет` : 'море';
@@ -260,11 +306,13 @@ function updateLod(){
 
 // layer mode
 document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{
-  document.querySelectorAll('[data-mode]').forEach(x=>x.classList.toggle('on',x===b)); mode=b.dataset.mode; applyMode(); });
+  document.querySelectorAll('[data-mode]').forEach(x=>{ x.classList.toggle('on',x===b); x.setAttribute('aria-pressed',x===b); }); mode=b.dataset.mode; applyMode(); writeView(); });
 function applyMode(){ for(const l of ['b','bl']) map.setPaintProperty(l,'fill-extrusion-color', mode==='mon'?monColor:period); }
 
 // year: buildings built after the chosen year are hidden
-$('#year').oninput = e => { year=+e.target.value; $('#yv').textContent=year; applyYear(); };
+$('#year').oninput = e => { year=+e.target.value; $('#yv').textContent=year; applyYear(); writeView(); };
+$('#year').value=year; $('#yv').textContent=year;
+document.querySelectorAll('[data-mode]').forEach(x=>{ x.classList.toggle('on',x.dataset.mode===mode); x.setAttribute('aria-pressed',x.dataset.mode===mode); });
 function applyYear(){
   const f = year>=2026 ? null : ['all',['>',['get','y'],0],['<=',['get','y'],year]];
   map.setFilter('b', f); map.setFilter('bl', f);
@@ -272,7 +320,7 @@ function applyYear(){
   map.setFilter('o', showB ? ['==',['get','y'],-1] : year>=2026 ? null : ['<=',['get','y'],year]);
 }
 
-$('#tilt').onclick = () => map.easeTo({pitch: map.getPitch()>10?0:55, duration:600});
+$('#tilt').onclick = () => map.easeTo({pitch: map.getPitch()>10?0:55, duration:dur(600)});
 
 // pixel ratio: 1.5 (default, cooler) vs device (sharper, hotter)
 function prLabel(){ $('#pr').textContent = pixelRatio<devicePixelRatio ? `Чёткость ${devicePixelRatio}×` : 'Чёткость 1.5×';
@@ -285,8 +333,8 @@ function showCard(f){
   const p=f.properties, id=String(p.id).padStart(16,'0');
   $('#card').innerHTML = `<button class="x" aria-label="Закрыть">×</button>
     <h3>${p.y>0?p.y:'год неизвестен'}</h3>
-    <div class="meta"><span class="sw" style="background:${mode==='mon'?'#b8860b':period2(p.y)}"></span>высота ${p.h} м · BAG ${id}</div>
-    ${p.m?`<div style="margin-top:6px">Рийксмонумент № ${p.m} · <a href="https://monumentenregister.cultureelerfgoed.nl/monumenten/${p.m}" target="_blank" rel="noopener">реестр RCE</a></div>`:''}
+    <div class="meta"><span class="sw" style="background:${mode==='mon'?'#b8860b':period2(p.y)}"></span>высота ${NUM.format(p.h)}\u00A0м · BAG <span class="bag" translate="no">${id}</span></div>
+    ${p.m?`<div style="margin-top:6px">Рийксмонумент №\u00A0<span translate="no">${p.m}</span> · <a href="https://monumentenregister.cultureelerfgoed.nl/monumenten/${p.m}" target="_blank" rel="noopener">реестр RCE</a></div>`:''}
     <div style="margin-top:6px"><a href="https://bagviewer.kadaster.nl/lvbag/bag-viewer/?objectId=${id}" target="_blank" rel="noopener">BAG viewer</a></div>`;
   $('#card').hidden=false; $('#card .x').onclick=()=>$('#card').hidden=true;
 }
@@ -326,8 +374,8 @@ $('#bench').onclick = async () => {
   const s=times.slice(5).sort((a,b)=>a-b), avg=s.reduce((a,b)=>a+b,0)/s.length;
   const p95=s[Math.floor(s.length*0.95)], slow=s.filter(x=>x>33.4).length;
   log.textContent=`Пролёт 20 с, pixelRatio ${pixelRatio}\nсредний кадр ${avg.toFixed(1)} мс (${(1000/avg).toFixed(0)} fps)\n`+
-    `95-й перцентиль ${p95.toFixed(1)} мс\nкадров дольше 33 мс: ${slow} из ${s.length}\n\nнажми, чтобы закрыть`;
-  log.onclick=()=>log.hidden=true;
+    `95-й перцентиль ${p95.toFixed(1)} мс\nкадров дольше 33 мс: ${slow} из ${s.length}\n`;
+  const close=document.createElement('button'); close.textContent='Закрыть'; close.onclick=()=>log.hidden=true; log.appendChild(close); close.focus();
   window.lastBench={avg,p95,slow,n:s.length,pixelRatio};
 };
 </script>
