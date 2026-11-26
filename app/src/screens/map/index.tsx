@@ -10,6 +10,7 @@ import { Chip } from '@/components/chip';
 import { LayrsMap } from '@/components/layrs-map';
 import { CITIES, HOME, LENS_CITIES, YEAR_MAX, YEAR_MIN } from '@/data/config';
 import { loadLenses } from '@/data/places';
+import { COLLECT_RADIUS_M, ERA_INK, MAX_ACCURACY_M, loadStamps, useJournal } from '@/data/stamps';
 import { flyTo, getApp, setApp, useApp } from '@/data/store';
 import { bearing, dist, legMeters, walkMeters } from '@/data/walk';
 import { startLocation } from '@/hooks/use-location';
@@ -25,6 +26,10 @@ export function MapScreen() {
   const year = useApp((s) => s.year);
   const lensId = useApp((s) => s.lensId);
   const selected = useApp((s) => s.selected);
+  const stampId = useApp((s) => s.stampId);
+  const stampsHere = useApp((s) => s.stampsHere);
+  const me = useApp((s) => s.me);
+  const journal = useJournal();
   const [lensCount, setLensCount] = useState(0);
   const [lensTitle, setLensTitle] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -42,8 +47,21 @@ export function MapScreen() {
     return () => { live = false; };
   }, [gm?.code, lensId]);
 
-  // a tap on a building opens its sheet
+  // a tap on a building opens its sheet; a tap on a stamp opens the stamp
   useEffect(() => { if (selected) router.push('/building'); }, [selected, router]);
+  useEffect(() => { if (stampId) router.push('/stamp'); }, [stampId, router]);
+
+  // stamps of the municipality under the map centre
+  useEffect(() => {
+    let live = true;
+    loadStamps(gm?.code).then((c) => { if (live) setApp({ stampsHere: c?.stamps ?? [], stampsCity: c?.name ?? null }); });
+    return () => { live = false; };
+  }, [gm?.code]);
+
+  // standing next to a stamp you do not have yet
+  const nearby = me && me.acc <= MAX_ACCURACY_M
+    ? stampsHere.filter((st) => !journal[st.id]).map((st) => ({ st, d: dist(me.ll, st.ll) })).filter((x) => x.d <= COLLECT_RADIUS_M).sort((a, b) => a.d - b.d)[0]
+    : undefined;
 
   const locate = async () => {
     const r = await startLocation();
@@ -67,6 +85,13 @@ export function MapScreen() {
       {note ? <Text accessibilityLiveRegion="polite" style={[styles.note, { top: insets.top + 60 }]}>{note}</Text> : null}
 
       <View style={styles.panel}>
+        {nearby ? (
+          <Pressable accessibilityRole="button" onPress={() => setApp({ stampId: nearby.st.id })}
+            style={({ pressed }) => [styles.nearby, { borderColor: ERA_INK[nearby.st.era] }, pressed && { opacity: 0.8 }]}>
+            <View style={[styles.nearbyDot, { backgroundColor: ERA_INK[nearby.st.era] }]} />
+            <Text style={[type.headline, { flex: 1 }]} numberOfLines={2}>Вы у {nearby.st.name} — поставить печать</Text>
+          </Pressable>
+        ) : null}
         <WalkStrip />
         <Text style={type.caption} accessibilityLiveRegion="polite">
           {country ? 'Нидерланды' : gm ? `${gm.name} · ${gm.province}` : 'вне Нидерландов'}
@@ -163,5 +188,7 @@ const styles = StyleSheet.create({
   yearValue: { minWidth: 56, textAlign: 'right', fontVariant: ['tabular-nums'] },
   walk: { gap: 6, paddingBottom: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
   next: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+  nearby: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 2, borderRadius: 14, padding: 10, backgroundColor: colors.paper },
+  nearbyDot: { width: 14, height: 14, borderRadius: 7 },
   arrow: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.paper, alignItems: 'center', justifyContent: 'center' },
 });

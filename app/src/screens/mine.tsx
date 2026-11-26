@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Journal } from '@/components/journal';
 import { removeWalk, toggleBuilding, useSaved } from '@/data/saved';
 import { flyTo, setApp } from '@/data/store';
 import { colors, spacing, type } from '@/theme';
@@ -18,6 +19,9 @@ export function MineScreen() {
   return (
     <ScrollView style={styles.fill} contentContainerStyle={[styles.wrap, { paddingTop: insets.top + spacing.md }]}>
       <Text style={type.title}>Мои</Text>
+
+      <Text style={styles.label}>Дневник печатей</Text>
+      <Journal />
 
       <Text style={styles.label}>Сохранённые здания</Text>
       {saved.buildings.length ? (

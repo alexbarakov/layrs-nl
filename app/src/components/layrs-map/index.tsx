@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { municipalityAt } from '@/data/places';
+import { useJournal } from '@/data/stamps';
 import { getApp, setApp, useApp } from '@/data/store';
 import { BUILDING_LAYER_IDS, baseStyle, buildingLayers, overviewFilter } from '@/data/style';
 
@@ -29,8 +30,10 @@ export function LayrsMap() {
   const walk = useApp((s) => s.walk);
   const walkStep = useApp((s) => s.walkStep);
   const me = useApp((s) => s.me);
+  const stampsHere = useApp((s) => s.stampsHere);
+  const journal = useJournal();
   const layers = useMemo(() => buildingLayers(state), [state]);
-  const overlay = useMemo(() => overlayData({ walk, walkStep, me }), [walk, walkStep, me]);
+  const overlay = useMemo(() => overlayData({ walk, walkStep, me, stampsHere }, journal), [walk, walkStep, me, stampsHere, journal]);
   const oFilter = overviewFilter(state.year);
 
   useEffect(() => {
@@ -52,17 +55,20 @@ export function LayrsMap() {
       }}
       onPress={async (e) => {
         const p = e.nativeEvent.point;
-        const hit = await mapRef.current?.queryRenderedFeatures(p, { layers: [...BUILDING_LAYER_IDS, 'walk-stop'] });
+        const hit = await mapRef.current?.queryRenderedFeatures(p, { layers: ['stamp', ...BUILDING_LAYER_IDS, 'walk-stop'] });
         const f = hit?.[0];
         if (!f) { setApp({ selected: null }); return; }
         const pr: any = f.properties || {};
+        if (pr.k === 'stamp') { setApp({ stampId: String(pr.id) }); return; }
         if (pr.k === 'stop') {
           const s = getApp().walk?.stops[pr.n - 1];
           if (s) setApp({ selected: { id: s.id, y: s.y, h: s.h, m: s.m, q: s.q, ll: s.ll } });
           return;
         }
         setApp({ selected: { id: String(pr.id).padStart(16, '0'), y: pr.y, h: pr.h, m: pr.m, q: pr.q, ll: e.nativeEvent.lngLat as [number, number] } });
-      }}>
+      }}
+      // development only: a long press puts "me" there, to test stamps and walks without walking
+      onLongPress={__DEV__ ? (e) => setApp({ me: { ll: e.nativeEvent.lngLat as [number, number], acc: 5, simulated: true } }) : undefined}>
       <Camera ref={cam} initialViewState={{ center: camera.center, zoom: camera.zoom }} />
       <Layer {...(OVERVIEW as any)} {...(oFilter ? { filter: oFilter } : {})} beforeId="rail" />
       {layers.map((l) => (

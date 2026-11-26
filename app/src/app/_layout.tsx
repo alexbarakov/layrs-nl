@@ -15,6 +15,9 @@ export default function RootLayout() {
         presentation: 'formSheet', sheetGrabberVisible: true, sheetAllowedDetents: [0.4, 0.75, 1.0],
         sheetInitialDetentIndex: 0, sheetLargestUndimmedDetentIndex: 0, headerShown: false,
       }} />
+      <Stack.Screen name="stamp" options={{
+        presentation: 'formSheet', sheetGrabberVisible: true, sheetAllowedDetents: [0.7, 1.0], headerShown: false,
+      }} />
       <Stack.Screen name="lenses" options={{
         presentation: 'formSheet', sheetGrabberVisible: true, sheetAllowedDetents: [0.6, 1.0], headerShown: false,
       }} />

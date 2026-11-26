@@ -1,6 +1,6 @@
 # raw downloads and build outputs: rebuilt by pipeline/, too large for git
-data/
-out/
+/data/
+/out/
 viewer/*.pmtiles
 viewer/poi/
 viewer/graph/
@@ -11,3 +11,4 @@ viewer/graph/
 __pycache__/
 .DS_Store
 viewer/layers/
+viewer/stamps/

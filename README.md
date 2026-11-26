@@ -35,6 +35,8 @@ open data ──► pipeline/ (Python) ──► out/*.pmtiles + viewer/poi, vie
 | `p11_fetch_rce_cho` | RCE linked data (CC BY): monument → BAG relations, construction dates, register descriptions | `data/raw/rce_{bag,dates,text}.csv` |
 | `p12_clean_years` | Construction years for the whole country (see Data decisions); updates `out/panden.parquet` | `out/years.parquet` |
 | `p13_rebuild_after_years.sh` | Rebuilds every derived output after `p12` without rerunning `p03`'s first pass | all of the above |
+| `p14_city_layers` | Lens catalogues and per-building group bits from the Amsterdam and Delft sites | `viewer/layers/<GM>.json` |
+| `p15_stamps` | Stamps: 5–20 landmarks per municipality across six eras (Wikidata + our buildings), each with a black-and-white architectural sketch made from its Commons photo | `viewer/stamps/<GM>.json`, `index.json`, `img/<qid>.png` |
 
 `p02_build_pmtiles` is the earlier one-province trial build. Running `p03` again recomputes `out/panden.parquet`
 from the tiles, so run `p12` and `p13` after it.
@@ -73,6 +75,7 @@ python3 viewer/serve.py 8661 viewer lan https
 - Cells by median age when zoomed out, buildings from z12 once 10,000 cells or fewer are in view
 - Periods and monuments modes, year slider, 3D, pixel-ratio switch to compare heat, 20 s fly-through benchmark
 - Chips follow the municipality under the map centre
+- City lenses from the Amsterdam and Delft sites
 - Geolocation (https only) and a walk planner: start, interests, length, loop or one way;
   stops are chosen on the phone, then routed along streets on the municipality graph;
   guided mode, Google Maps export and a shareable link
@@ -93,7 +96,17 @@ python3 viewer/serve.py 8661 viewer lan https
   Matching: point inside a footprint, else the nearest building within 15 m (55,893 of 63,119 matched).
 - **Walking**: every road except motor-only, bus lanes, airfields, slip roads and interchanges.
 
+## Stamps
+
+Each municipality gets 5 to 20 stamps, more for bigger towns (10,000 buildings → 5, 200,000 and more → 20). Candidates are
+Wikidata items with a BAG building id or a rijksmonument number and at least one Wikipedia article; picks go round-robin
+over six eras (before 1500, 1500–1649, 1650–1799, 1800–1899, 1900–1944, from 1945), most Wikipedia languages first, at
+least 100 m apart. A stamp is collected in the app by standing within 60 m of it with GPS accuracy of 50 m or better.
+The stamp is black and white: an architectural pen sketch (XDoG lines and hatching in the shadows) made from the item's
+Commons photo, which keeps that photo's licence; author and licence are shown with it. Photos are cached in
+`data/raw/commons/`, so restyling never downloads them again.
+
 ## Licence
 
 Code: MIT (see [LICENSE](LICENSE)). Data keeps the licence of its source: 3D BAG CC BY 4.0; BAG CC0;
-RCE rijksmonumenten and RCE linked data (cho) CC BY; Kadaster BRT Top10NL and BRK boundaries CC BY 4.0; Natural Earth public domain.
+RCE rijksmonumenten and RCE linked data (cho) CC BY; Kadaster BRT Top10NL and BRK boundaries CC BY 4.0; Natural Earth public domain; Wikidata CC0; stamp drawings are derived from Wikimedia Commons photos and keep each photo's licence (author and licence in `stamps/<GM>.json`).

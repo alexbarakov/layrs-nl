@@ -8,6 +8,7 @@ import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
 
 import { municipalityAt } from '@/data/places';
+import { useJournal } from '@/data/stamps';
 import { getApp, setApp, useApp } from '@/data/store';
 import { BUILDING_LAYER_IDS, baseStyle, buildingColor, overviewFilter, yearFilter } from '@/data/style';
 
@@ -24,6 +25,8 @@ export function LayrsMap() {
   const walk = useApp((s) => s.walk);
   const walkStep = useApp((s) => s.walkStep);
   const me = useApp((s) => s.me);
+  const stampsHere = useApp((s) => s.stampsHere);
+  const journal = useJournal();
 
   useEffect(() => {
     if (!protocolAdded) { maplibregl.addProtocol('pmtiles', new Protocol().tile); protocolAdded = true; }
@@ -44,6 +47,8 @@ export function LayrsMap() {
       setApp({ view: { center: [ctr.lng, ctr.lat], zoom: map.getZoom() }, gm: gm ? { code: gm.code, name: gm.name, province: gm.province } : null });
     });
     map.on('click', (e: maplibregl.MapMouseEvent) => {
+      const stamp = map.getLayer('stamp') ? map.queryRenderedFeatures(e.point, { layers: ['stamp'] })[0] : undefined;
+      if (stamp) { setApp({ stampId: String((stamp.properties as any).id) }); return; }
       const layers = [...BUILDING_LAYER_IDS, 'walk-stop'].filter((l) => map.getLayer(l));
       const f = map.queryRenderedFeatures(e.point, { layers })[0];
       if (!f) { setApp({ selected: null }); return; }
@@ -55,6 +60,8 @@ export function LayrsMap() {
       }
       setApp({ selected: { id: String(pr.id).padStart(16, '0'), y: pr.y, h: pr.h, m: pr.m, q: pr.q, ll: [e.lngLat.lng, e.lngLat.lat] } });
     });
+    // development only: a right click (long press) puts "me" there, to test stamps and walks without walking
+    if (__DEV__) map.on('contextmenu', (e: maplibregl.MapMouseEvent) => setApp({ me: { ll: [e.lngLat.lng, e.lngLat.lat], acc: 5, simulated: true } }));
     const ro = new ResizeObserver(() => map.resize());
     ro.observe(el);
     (window as any).layrsMap = map;
@@ -78,8 +85,8 @@ export function LayrsMap() {
 
   useEffect(() => {
     const src = mapRef.current?.getSource('overlay') as maplibregl.GeoJSONSource | undefined;
-    src?.setData(overlayData({ walk, walkStep, me }));
-  }, [walk, walkStep, me]);
+    src?.setData(overlayData({ walk, walkStep, me, stampsHere }, journal));
+  }, [walk, walkStep, me, stampsHere, journal]);
 
   useEffect(() => {
     if (camera.seq === 0) return;
