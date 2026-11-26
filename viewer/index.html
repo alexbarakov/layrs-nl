@@ -1,0 +1,45 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LAYRS NL tiles check</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/pmtiles@4.3.0/dist/pmtiles.js"></script>
+<style>
+  html,body,#map{margin:0;height:100%;background:#f4f3ef}
+  #hud{position:absolute;left:8px;bottom:8px;font:12px system-ui;background:#fffc;padding:4px 8px;border-radius:4px}
+</style>
+<div id="map"></div><div id="hud"></div>
+<script>
+const protocol = new pmtiles.Protocol();
+maplibregl.addProtocol('pmtiles', protocol.tile);
+const q = new URLSearchParams(location.search);
+const B = q.get('b_file') || 'nl-buildings.pmtiles';
+const P = [[1600,'#4a1410'],[1666,'#8c1c13'],[1800,'#c0462b'],[1870,'#d97a2b'],[1914,'#e5b13a'],
+           [1941,'#8e9f3c'],[1965,'#3f8f6b'],[1985,'#2c7391'],[2000,'#3a4f9a']];
+const color = ['step',['get','y'],'#4a1410', ...P.flatMap(([y,c],i)=>[y, (P[i+1]||[0,'#6a3f8f'])[1]])];
+const mon = q.get('mon') === '1';
+const bcolor = mon ? ['case',['has','m'],'#b8860b','#d9d7d0'] : color;
+const map = new maplibregl.Map({
+  container:'map',
+  center:[+(q.get('lon')||5.2), +(q.get('lat')||52.15)],
+  zoom:+(q.get('z')||7), pitch:+(q.get('p')||0), bearing:+(q.get('br')||0),
+  style:{version:8,
+    sources:{
+      o:{type:'vector',url:'pmtiles://'+location.origin+'/nl-overview.pmtiles'},
+      b:{type:'vector',url:'pmtiles://'+location.origin+'/'+B}},
+    layers:[{id:'bg',type:'background',paint:{'background-color':'#f4f3ef'}},
+      {id:'o',type:'fill',source:'o','source-layer':'o',maxzoom:14,
+       paint:{'fill-color':color,'fill-opacity':['interpolate',['linear'],['get','c'],0,0.25,0.3,0.95],
+              'fill-antialias':false}},
+      {id:'b',type:'fill-extrusion',source:'b','source-layer':'b',minzoom:14,
+       paint:{'fill-extrusion-color':bcolor,'fill-extrusion-height':['get','h'],
+              'fill-extrusion-opacity':0.95}}]}
+});
+let frames=0; map.on('render',()=>frames++);
+setInterval(()=>{ if(!map.isStyleLoaded()) return;
+  const ly = map.getZoom()>=14 ? ['b'] : ['o'];
+  const f=map.queryRenderedFeatures({layers:ly}).length;
+  document.getElementById('hud').textContent=`z${map.getZoom().toFixed(1)}  ${ly[0]} features on screen ${f}  frames/s ${frames}`; frames=0;},1000);
+window.map=map;
+</script>

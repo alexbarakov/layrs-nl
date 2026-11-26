@@ -1,0 +1,12 @@
+# raw downloads and build outputs: rebuilt by pipeline/, too large for git
+data/
+out/
+viewer/*.pmtiles
+viewer/poi/
+viewer/graph/
+# local dev certificate (private key) and tool state
+.cert/
+.venv/
+.wrangler/
+__pycache__/
+.DS_Store

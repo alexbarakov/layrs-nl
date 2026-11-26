@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>LAYRS NL · стенд</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/pmtiles@4.3.0/dist/pmtiles.js"></script>
+<style>
+  :root{--ink:#22201c;--paper:#f4f3ef;--card:#fffdf8;--line:#dcd9d0;--mute:#77736a;--acc:#8c1c13}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--paper);color:var(--ink);
+    font:14px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;overflow:hidden}
+  #map{position:fixed;inset:0}
+  .maplibregl-ctrl-attrib{font-size:10px}
+  #hud{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);left:8px;right:8px;display:flex;gap:6px;flex-wrap:wrap;
+    pointer-events:none;font:11px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace}
+  #hud span{background:#fffdf8e6;border:1px solid var(--line);border-radius:6px;padding:3px 6px}
+  #hud .bad{color:#b3261e;border-color:#e6b4ae}
+  #sheet{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);
+    border-radius:14px 14px 0 0;padding:10px 12px calc(env(safe-area-inset-bottom,0px) + 10px);box-shadow:0 -6px 18px #0000000f}
+  .row{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+  .row::-webkit-scrollbar{display:none}
+  .row+.row{margin-top:8px}
+  button{font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:999px;
+    padding:7px 12px;white-space:nowrap;min-height:34px}
+  button.on{background:var(--ink);color:var(--card);border-color:var(--ink)}
+  button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+  .yr{display:flex;align-items:center;gap:10px;margin-top:10px}
+  .yr input{flex:1;accent-color:var(--acc)}
+  .yr b{font-variant-numeric:tabular-nums;min-width:3.2em;text-align:right}
+  #card{position:fixed;left:12px;right:12px;bottom:calc(var(--sheet-h,150px) + 10px);background:var(--card);
+    border:1px solid var(--line);border-radius:12px;padding:12px 14px;box-shadow:0 6px 20px #0000001a}
+  #card h3{margin:0 0 4px;font-size:17px}
+  #card .meta{color:var(--mute)}
+  #card a{color:var(--acc)}
+  #card .x{position:absolute;top:6px;right:6px;border:0;background:none;font-size:20px;min-height:0;padding:4px 8px}
+  #log{position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top,0px) + 40px);background:#22201ce6;color:#f4f3ef;
+    border-radius:10px;padding:10px 12px;font:12px/1.4 ui-monospace,Menlo,monospace;white-space:pre-wrap}
+  #where{font-size:12px;color:var(--mute);margin:0 2px 6px}
+  /* geolocation + walk */
+  #locate{position:fixed;right:10px;top:calc(env(safe-area-inset-top,0px) + 74px);width:42px;height:42px;border-radius:12px;padding:0;
+    display:grid;place-items:center;background:#fffdf8f2;box-shadow:0 1px 5px #0000002e;border:0;min-height:0}
+  #locate svg{width:20px;height:20px}
+  #locate.follow{color:#1a73e8}
+  #locate.off{opacity:.45}
+  #toast{position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top,0px) + 74px);margin-right:54px;background:#22201ce6;color:#f4f3ef;
+    border-radius:10px;padding:9px 12px;font-size:13px}
+  #walk{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);border-radius:14px 14px 0 0;
+    padding:10px 12px calc(env(safe-area-inset-bottom,0px) + 10px);box-shadow:0 -6px 18px #0000000f;max-height:62vh;overflow:auto}
+  #walk h3{margin:2px 2px 6px;font-size:17px}
+  #walk .lbl{font-size:12px;color:var(--mute);margin:10px 2px 5px}
+  #walk .wrapchips{display:flex;gap:6px;flex-wrap:wrap}
+  #walk .sum{color:var(--mute);margin:0 2px 8px;font-variant-numeric:tabular-nums}
+  #walk ol{margin:0;padding:0;list-style:none;display:grid}
+  #walk li{display:grid;grid-template-columns:26px 1fr auto;gap:8px;align-items:center;padding:8px 2px;border-top:1px solid var(--line);cursor:pointer}
+  #walk li:first-child{border-top:0}
+  #walk li .n{width:22px;height:22px;border-radius:50%;background:var(--acc);color:#fff;display:grid;place-items:center;font-size:12px;font-weight:600}
+  #walk li.done .n{background:#b9b4aa}
+  #walk li small{color:var(--mute);font-variant-numeric:tabular-nums}
+  #walk .act{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  #walk .primary{background:var(--acc);color:#fff;border-color:var(--acc)}
+  #walk .next{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center}
+  #walk .arrow{width:44px;height:44px;border-radius:50%;background:var(--paper);display:grid;place-items:center;font-size:22px;transition:transform .3s}
+  #cross{position:fixed;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;pointer-events:none}
+  .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+</style>
+<div id="map"></div>
+<div id="hud"><span id="fps">— fps</span><span id="feat">—</span><span id="mb">0 MB</span><span id="dpr"></span><span id="zm"></span></div>
+<div id="log" hidden></div>
+<div id="card" hidden></div>
+<button id="locate" aria-label="Моё место"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l7 19-7-4-7 4z" transform="rotate(45 12 12)"/></svg></button>
+<div id="toast" hidden></div>
+<svg id="cross" hidden viewBox="0 0 26 26"><circle cx="13" cy="13" r="5" fill="none" stroke="#8c1c13" stroke-width="2.5"/><path d="M13 0v7M13 19v7M0 13h7M19 13h7" stroke="#8c1c13" stroke-width="2"/></svg>
+<div id="walk" hidden></div>
+<div id="sheet">
+  <div id="where">—</div>
+  <div class="row" id="cities"></div>
+  <div class="row">
+    <button data-mode="periods" class="on">Периоды</button>
+    <button data-mode="mon">Памятники</button>
+    <button id="tilt">3D</button>
+    <button id="pr">Чёткость 2×</button>
+    <button id="walkbtn">Прогулка</button>
+    <button id="bench">Замер пролёта</button>
+  </div>
+  <div class="yr"><span>Год</span><input id="year" type="range" min="1300" max="2026" value="2026" aria-label="Год"><b id="yv">2026</b></div>
+</div>
+<script>
+const protocol = new pmtiles.Protocol();
+maplibregl.addProtocol('pmtiles', protocol.tile);
+const $ = s => document.querySelector(s);
+
+// [label, lon, lat, zoom, municipality code]; the chip lights up while that municipality is under the map centre
+const CITIES = [
+  ['Вся страна',5.3,52.15,7,'NL'],
+  ['Амстердам',4.8952,52.3731,0,'GM0363'],['Делфт',4.3571,52.0116,0,'GM0503'],['Роттердам',4.4777,51.9200,0,'GM0599'],
+  ['Гаага',4.3113,52.0799,0,'GM0518'],['Утрехт',5.1214,52.0907,0,'GM0344'],['Лейден',4.4937,52.1601,0,'GM0546'],
+  ['Харлем',4.6370,52.3810,0,'GM0392'],['Гронинген',6.5665,53.2194,0,'GM0014'],['Маастрихт',5.6909,50.8514,0,'GM0935']];
+const Q = new URLSearchParams(location.search);
+const CELL_LIMIT = +(Q.get('cells')||10000);   // buildings replace cells once this many cells (or fewer) are in view
+const P = [[1600,'#4a1410'],[1666,'#8c1c13'],[1800,'#c0462b'],[1870,'#d97a2b'],[1914,'#e5b13a'],
+           [1941,'#8e9f3c'],[1965,'#3f8f6b'],[1985,'#2c7391'],[2000,'#3a4f9a']];
+const period = ['step',['get','y'],'#4a1410', ...P.flatMap(([y,c],i)=>[y,(P[i+1]||[0,'#6a3f8f'])[1]])];
+const monColor = ['case',['has','m'],'#b8860b','#d9d7d0'];
+
+// basemap (Top10NL). ?base=0 switches it off to compare load and heat
+const BASE = new URLSearchParams(location.search).get('base') !== '0';
+const SEA = '#c9d9e2';
+const W = (pairs) => ['interpolate',['exponential',1.6],['zoom'],...pairs.flat()];
+const C = (id,type,layer,o) => ({id,type,source:'ctx','source-layer':layer,...o});
+const ctxLand = [C('land','fill','land',{paint:{'fill-color':['match',['get','k'],'nl','#f4f3ef','#e7e4dd'],'fill-antialias':false}})];
+const ctxBorder = [
+  C('border-x','line','border',{filter:['==',['get','k'],'x'],paint:{'line-color':'#b9b4aa','line-width':W([[5,0.5],[12,1.2]]),'line-dasharray':[4,2]}}),
+  C('border-nl','line','border',{filter:['==',['get','k'],'nl'],layout:{'line-join':'round'},
+    paint:{'line-color':'#6f6a5f','line-width':W([[5,1.3],[10,2],[15,3.5]]),'line-dasharray':[4,1.5,1,1.5]}})];
+const ctxLabels = [C('country','symbol','country',{
+  layout:{'text-field':['step',['zoom'],['get','n'],9,['concat',['get','n'],'\n',['get','ne']]],'text-font':['Open Sans Semibold'],
+    'text-size':W([[5,11],[10,15]]),'text-letter-spacing':0.08},
+  paint:{'text-color':'#9a9488','text-halo-color':'#e7e4dd','text-halo-width':1.5}})];
+const L = (id,type,layer,o) => ({id,type,source:'base','source-layer':layer,...o});
+const baseBelow = [
+  L('green','fill','green',{paint:{'fill-color':['match',['get','k'],'forest','#dfe6d3','heath','#e8e2d6','sand','#efe9da','cemetery','#dde3d6','#e3eadb'],'fill-antialias':false}}),
+  L('water','fill','water',{paint:{'fill-color':'#c9d9e2','fill-antialias':false}}),
+  L('waterline','line','waterline',{minzoom:13,paint:{'line-color':'#c9d9e2','line-width':W([[13,0.4],[16,1.5]])}}),
+];
+const baseRoads = [
+  L('rail','line','rail',{filter:['!',['has','t']],paint:{'line-color':'#a9a49a','line-width':W([[8,0.4],[15,1.4]]),'line-dasharray':[3,2]}}),
+  L('road-minor','line','road',{minzoom:13,filter:['all',['in',['get','c'],['literal',['street','minor','path']]],['!',['has','t']]],
+    layout:{'line-cap':'round','line-join':'round'},
+    paint:{'line-color':['match',['get','c'],'path','#e4e0d6','#ffffff'],'line-width':W([[13,0.5],[16,4]])}}),
+  L('road-major','line','road',{filter:['all',['in',['get','c'],['literal',['motorway','trunk','primary','secondary']]],['!',['has','t']]],
+    layout:{'line-cap':'round','line-join':'round'},
+    paint:{'line-color':['match',['get','c'],'motorway','#f2d9a6','trunk','#f5e2b8','#ffffff'],
+           'line-width':['interpolate',['exponential',1.6],['zoom'],6,['match',['get','c'],'motorway',0.8,0.4],16,['match',['get','c'],'motorway',10,'trunk',8,6]]}}),
+];
+const FONT = ['Noto Sans Regular'];
+const baseLabels = [
+  L('road-label','symbol','road',{minzoom:15,filter:['has','n'],
+    layout:{'symbol-placement':'line','text-field':['get','n'],'text-font':FONT,'text-size':11,'text-max-angle':30},
+    paint:{'text-color':'#6b675f','text-halo-color':'#fff','text-halo-width':1.2}}),
+  L('place-label','symbol','place',{
+    layout:{'text-field':['get','n'],'text-font':['Open Sans Semibold'],'text-padding':4,
+      'text-size':['match',['get','k'],'town',['interpolate',['linear'],['coalesce',['get','p'],0],0,11,100000,14,500000,17],'district',11,'quarter',10,10],
+      'symbol-sort-key':['-',0,['coalesce',['get','p'],0]]},
+    paint:{'text-color':['match',['get','k'],'town','#3c3a36','#7a766d'],'text-halo-color':'#f4f3efdd','text-halo-width':1.5}}),
+];
+
+let pixelRatio = Math.min(devicePixelRatio, 1.5);
+let mode = 'periods', year = 2026;
+
+function makeMap(center, zoom, pitch, bearing){
+  const m = new maplibregl.Map({
+    container:'map', center, zoom, pitch, bearing, pixelRatio, maxPitch:70,
+    attributionControl:{compact:true},
+    style:{version:8,
+      glyphs:'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+      sources:{
+        ...(BASE?{base:{type:'vector',url:'pmtiles://'+location.origin+'/nl-base.pmtiles',
+           attribution:'Kadaster BRT Top10NL (CC BY 4.0)'}}:{}),
+        ctx:{type:'vector',url:'pmtiles://'+location.origin+'/nl-context.pmtiles',
+           attribution:'Natural Earth, Kadaster BRK'},
+        o:{type:'vector',url:'pmtiles://'+location.origin+'/nl-overview.pmtiles'},
+        or:{type:'raster',url:'pmtiles://'+location.origin+'/nl-overview-r.pmtiles',tileSize:256},
+        bl:{type:'vector',url:'pmtiles://'+location.origin+'/nl-buildings-lo.pmtiles'},
+        b:{type:'vector',url:'pmtiles://'+location.origin+'/nl-buildings.pmtiles',
+           attribution:'3D BAG (CC BY 4.0), BAG, RCE'}},
+      layers:[{id:'bg',type:'background',paint:{'background-color':SEA}},
+        ...ctxLand,
+        ...(BASE?baseBelow:[]),
+        // z<10: one pixel = median year of the buildings under it, so zooming out never shows big squares
+        {id:'or',type:'raster',source:'or',maxzoom:10,paint:{'raster-resampling':'linear','raster-fade-duration':0}},
+        {id:'o',type:'fill',source:'o','source-layer':'o',minzoom:10,maxzoom:14,
+         paint:{'fill-color':period,'fill-opacity':['interpolate',['linear'],['get','c'],0,0.2,0.3,0.95],'fill-antialias':false}},
+        ...(BASE?baseRoads:[]),
+        ...ctxBorder,
+        {id:'bl',type:'fill-extrusion',source:'bl','source-layer':'b',minzoom:12,maxzoom:14,layout:{visibility:'none'},
+         paint:{'fill-extrusion-color':period,'fill-extrusion-height':['get','h'],'fill-extrusion-opacity':0.95}},
+        {id:'b',type:'fill-extrusion',source:'b','source-layer':'b',minzoom:14,
+         paint:{'fill-extrusion-color':period,'fill-extrusion-height':['get','h'],'fill-extrusion-opacity':0.95}},
+        ...(BASE?baseLabels:[]),
+        ...ctxLabels]}
+  });
+  m.on('render',()=>frames++);
+  m.on('click','b',e=>showCard(e.features[0]));
+  m.on('click','bl',e=>showCard(e.features[0]));
+  m.on('click',e=>{ const ls=['b','bl',...(m.getLayer('walk-stop')?['walk-stop']:[])]; if(!m.queryRenderedFeatures(e.point,{layers:ls}).length) $('#card').hidden=true; });
+  m.on('load',()=>{applyMode();applyYear();updateLod();updateWhere();});
+  m.on('moveend',()=>{updateWhere();updateLod();});
+  m.on('idle',updateLod);
+  return m;
+}
+let frames = 0;
+let map = makeMap([4.3571,52.0116],15.3,55,-20);
+window.map = map;
+
+// ---- where am I: municipality under the map centre drives the chips ----
+let GEM = [];   // [{c,n,p,bbox,rings}]
+fetch('gemeenten.json').then(r=>r.json()).then(fc=>{
+  GEM = fc.features.map(f=>{
+    const polys = f.geometry.type==='Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
+    let x0=180,y0=90,x1=-180,y1=-90;
+    polys.forEach(p=>p[0].forEach(([x,y])=>{x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y);}));
+    return {c:f.properties.c,n:f.properties.n,p:f.properties.p,bbox:[x0,y0,x1,y1],polys};
+  });
+  updateWhere();
+});
+function inRing(x,y,r){ let ins=false; for(let i=0,j=r.length-1;i<r.length;j=i++){ const [xi,yi]=r[i],[xj,yj]=r[j];
+  if((yi>y)!==(yj>y) && x<(xj-xi)*(y-yi)/(yj-yi)+xi) ins=!ins; } return ins; }
+function gemAt(lon,lat){ return GEM.find(g=>lon>=g.bbox[0]&&lon<=g.bbox[2]&&lat>=g.bbox[1]&&lat<=g.bbox[3]&&
+  g.polys.some(p=>inRing(lon,lat,p[0]) && !p.slice(1).some(h=>inRing(lon,lat,h)))); }
+
+let here = null;   // current municipality (or null outside NL)
+function chip(label, active, onclick, extra){
+  const b=document.createElement('button'); b.textContent=label; b.classList.toggle('on',active); b.onclick=onclick;
+  if(extra) b.classList.add(extra); return b; }
+function flyCity([n,lon,lat,z]){ map.flyTo({center:[lon,lat],zoom:z||15.3,pitch:z?0:55,bearing:z?0:-20,duration:2500}); }
+function updateWhere(){
+  if(!map || !GEM.length) return;
+  const c=map.getCenter(), z=map.getZoom();
+  here = gemAt(c.lng,c.lat) || null;
+  // chips: the country view is "on" when zoomed out; a city chip is "on" while its municipality is under the centre
+  const country = z < 9;
+  const row=$('#cities'); row.innerHTML='';
+  const known = here && CITIES.some(k=>k[4]===here.c);
+  if(here && !known && !country){
+    // municipality we have no preset for: show it as the active chip, tap = fit it on screen
+    row.appendChild(chip(here.n, true, ()=>{ const b=here.bbox; map.fitBounds([[b[0],b[1]],[b[2],b[3]]],{padding:40,pitch:0}); }, 'here'));
+  }
+  CITIES.forEach(k=>row.appendChild(chip(k[0], k[4]==='NL' ? country : (!country && here && here.c===k[4]), ()=>flyCity(k))));
+  const RU={BEL:'Бельгия',DEU:'Германия',LUX:'Люксембург',FRA:'Франция',GBR:'Великобритания',DNK:'Дания'};
+  const k = !here && map.getLayer('land') ? map.queryRenderedFeatures(map.project(c),{layers:['land']})[0]?.properties.k : null;
+  $('#where').textContent = country ? 'Нидерланды' : here ? `${here.n} · ${here.p}` : RU[k] ? `${RU[k]} · данных о зданиях нет` : 'море';
+  row.querySelector('.on')?.scrollIntoView({inline:'nearest',block:'nearest'});
+}
+
+// ---- level of detail: cells until the view holds <= CELL_LIMIT cells, then buildings ----
+let showB = false;
+function cellsInView(){
+  const b=map.getBounds(), seen=new Set();
+  for(const f of map.querySourceFeatures('o',{sourceLayer:'o'})){
+    const [x,y]=f.geometry.type==='Polygon'?f.geometry.coordinates[0][0]:f.geometry.coordinates[0][0][0];
+    if(b.contains([x,y])) seen.add(x.toFixed(5)+','+y.toFixed(5));
+  }
+  return seen.size;
+}
+let lastCells = 0;
+function updateLod(){
+  if(!map.isStyleLoaded()) return;
+  const z=map.getZoom();
+  lastCells = z<14 ? cellsInView() : 0;
+  // hysteresis: on at <= limit, off again only above limit * 1.25 to stop flicker at the edge
+  const want = z>=12 && (showB ? lastCells <= CELL_LIMIT*1.25 : lastCells>0 && lastCells <= CELL_LIMIT);
+  if(want===showB) return;
+  showB = want;
+  map.setLayoutProperty('bl','visibility', showB?'visible':'none');
+  applyYear();
+}
+
+// layer mode
+document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('[data-mode]').forEach(x=>x.classList.toggle('on',x===b)); mode=b.dataset.mode; applyMode(); });
+function applyMode(){ for(const l of ['b','bl']) map.setPaintProperty(l,'fill-extrusion-color', mode==='mon'?monColor:period); }
+
+// year: buildings built after the chosen year are hidden
+$('#year').oninput = e => { year=+e.target.value; $('#yv').textContent=year; applyYear(); };
+function applyYear(){
+  const f = year>=2026 ? null : ['all',['>',['get','y'],0],['<=',['get','y'],year]];
+  map.setFilter('b', f); map.setFilter('bl', f);
+  // while buildings are shown the cell layer keeps loading tiles (for the count) but draws nothing
+  map.setFilter('o', showB ? ['==',['get','y'],-1] : year>=2026 ? null : ['<=',['get','y'],year]);
+}
+
+$('#tilt').onclick = () => map.easeTo({pitch: map.getPitch()>10?0:55, duration:600});
+
+// pixel ratio: 1.5 (default, cooler) vs device (sharper, hotter)
+function prLabel(){ $('#pr').textContent = pixelRatio<devicePixelRatio ? `Чёткость ${devicePixelRatio}×` : 'Чёткость 1.5×';
+  $('#dpr').textContent=`px ${pixelRatio}/${devicePixelRatio}`; }
+$('#pr').onclick = () => { pixelRatio = pixelRatio<devicePixelRatio ? devicePixelRatio : Math.min(devicePixelRatio,1.5);
+  map.setPixelRatio(pixelRatio); prLabel(); };
+prLabel();
+
+function showCard(f){
+  const p=f.properties, id=String(p.id).padStart(16,'0');
+  $('#card').innerHTML = `<button class="x" aria-label="Закрыть">×</button>
+    <h3>${p.y>0?p.y:'год неизвестен'}</h3>
+    <div class="meta"><span class="sw" style="background:${mode==='mon'?'#b8860b':period2(p.y)}"></span>высота ${p.h} м · BAG ${id}</div>
+    ${p.m?`<div style="margin-top:6px">Рийксмонумент № ${p.m} · <a href="https://monumentenregister.cultureelerfgoed.nl/monumenten/${p.m}" target="_blank" rel="noopener">реестр RCE</a></div>`:''}
+    <div style="margin-top:6px"><a href="https://bagviewer.kadaster.nl/lvbag/bag-viewer/?objectId=${id}" target="_blank" rel="noopener">BAG viewer</a></div>`;
+  $('#card').hidden=false; $('#card .x').onclick=()=>$('#card').hidden=true;
+}
+function period2(y){ let c='#4a1410'; for(let i=0;i<P.length;i++){ if(y>=P[i][0]) c=(P[i+1]||[0,'#6a3f8f'])[1]; } return c; }
+
+// sheet height -> card position
+const sheetH=()=>document.documentElement.style.setProperty('--sheet-h',(($('#walk').hidden?$('#sheet'):$('#walk')).offsetHeight)+'px');
+const ro=new ResizeObserver(sheetH); ro.observe($('#sheet')); ro.observe($('#walk'));
+
+// HUD
+let lastBytes=0;
+setInterval(()=>{
+  const z=map.getZoom(); $('#zm').textContent='z'+z.toFixed(1);
+  const fe=$('#fps'); fe.textContent=frames+' fps'; fe.classList.toggle('bad', frames>0 && frames<30); frames=0;
+  if(map.getLayer('b')) try{ const bs=z>=14||showB; $('#feat').textContent = bs ? 'здания '+map.queryRenderedFeatures({layers:z>=14?['b']:['bl']}).length+(z<14?` · клеток ${lastCells}`:'') : `клетки ${lastCells} / ${CELL_LIMIT}`; }catch(e){}
+  const bytes=performance.getEntriesByType('resource').filter(e=>e.name.includes('.pmtiles'))
+    .reduce((s,e)=>s+(e.encodedBodySize||e.transferSize||0),0);
+  $('#mb').textContent=(bytes/1e6).toFixed(1)+' MB';
+},1000);
+performance.setResourceTimingBufferSize?.(5000);
+
+// fly-through benchmark: fixed route through Amsterdam centre, measures frame times
+$('#bench').onclick = async () => {
+  const log=$('#log'); log.hidden=false; log.textContent='Замер: пролёт 20 с по центру Амстердама…';
+  const route=[[4.8890,52.3780,15.5,60,0],[4.8840,52.3700,15.8,60,80],[4.8950,52.3650,15.5,55,160],
+               [4.9050,52.3720,15.2,60,240],[4.8990,52.3800,15.8,65,320]];
+  map.jumpTo({center:route[0].slice(0,2),zoom:route[0][2],pitch:route[0][3],bearing:route[0][4]});
+  await new Promise(r=>map.once('idle',r));
+  const times=[]; let last=performance.now(), run=true;
+  const tick=t=>{ times.push(t-last); last=t; if(run) requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
+  for(const [lon,lat,z,p,b] of route.slice(1)){
+    map.easeTo({center:[lon,lat],zoom:z,pitch:p,bearing:b,duration:5000,easing:t=>t});
+    await new Promise(r=>setTimeout(r,5050));
+  }
+  run=false;
+  const s=times.slice(5).sort((a,b)=>a-b), avg=s.reduce((a,b)=>a+b,0)/s.length;
+  const p95=s[Math.floor(s.length*0.95)], slow=s.filter(x=>x>33.4).length;
+  log.textContent=`Пролёт 20 с, pixelRatio ${pixelRatio}\nсредний кадр ${avg.toFixed(1)} мс (${(1000/avg).toFixed(0)} fps)\n`+
+    `95-й перцентиль ${p95.toFixed(1)} мс\nкадров дольше 33 мс: ${slow} из ${s.length}\n\nнажми, чтобы закрыть`;
+  log.onclick=()=>log.hidden=true;
+  window.lastBench={avg,p95,slow,n:s.length,pixelRatio};
+};
+</script>
+<script src="route.js"></script>
+<script src="walk.js"></script>
+</html>

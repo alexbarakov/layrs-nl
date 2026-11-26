@@ -1,0 +1,9 @@
+[project]
+name = "layrs-nl"
+version = "0.1.0"
+description = "Every building in the Netherlands by age and historical context: data pipeline and mobile test stand"
+requires-python = ">=3.11"
+dependencies = [
+  "geopandas>=1.0", "pyogrio", "shapely>=2.0", "pyproj", "pandas", "pyarrow", "numpy",
+  "scipy", "pillow", "pmtiles",
+]
