@@ -26,6 +26,7 @@ export function LayrsMap() {
   const walkStep = useApp((s) => s.walkStep);
   const me = useApp((s) => s.me);
   const stampsHere = useApp((s) => s.stampsHere);
+  const showStamps = useApp((s) => s.showStamps);
   const journal = useJournal();
 
   useEffect(() => {
@@ -85,8 +86,8 @@ export function LayrsMap() {
 
   useEffect(() => {
     const src = mapRef.current?.getSource('overlay') as maplibregl.GeoJSONSource | undefined;
-    src?.setData(overlayData({ walk, walkStep, me, stampsHere }, journal));
-  }, [walk, walkStep, me, stampsHere, journal]);
+    src?.setData(overlayData({ walk, walkStep, me, stampsHere, showStamps }, journal));
+  }, [walk, walkStep, me, stampsHere, showStamps, journal]);
 
   useEffect(() => {
     if (camera.seq === 0) return;

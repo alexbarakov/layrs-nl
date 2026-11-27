@@ -4,12 +4,12 @@ Expo (SDK 58) app for iOS and Android, with a web build for previews. Screens fo
 
 | Tab | What it does |
 |---|---|
-| Карта | Country, city and building on one map: periods or monuments, city lenses, year slider, guided walk |
+| Карта | Country, city and building on one map; a layers button and the «Слой» row open the layers sheet; year slider, guided walk |
 | Маршруты | Walk planner: from the map centre or your position, interests, length, loop or one way; routed along streets |
-| Мои | Stamp journal per city, saved buildings and walks, city pack sizes, data sources |
+| Печати | Stamp journal: a page per city with progress |
 | Поиск | Municipalities, stories of the current city, any Dutch address (PDOK Locatieserver) |
 
-The building card, the lens list and the stamp are form sheets (`src/app/building.tsx`, `lenses.tsx`, `stamp.tsx`).
+The building card, the layers sheet and the stamp are form sheets (`src/app/building.tsx`, `layers.tsx`, `stamp.tsx`). The layers sheet holds three ways to colour buildings (period, monuments, height), the stamps toggle and the city's themed layers (lenses); the building card lists every layer the building is in, and a tap shows that layer on the map. Saved walks live in the Walks tab.
 
 ## Stamps
 

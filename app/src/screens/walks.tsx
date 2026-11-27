@@ -5,7 +5,7 @@ import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, Vi
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Chip } from '@/components/chip';
-import { saveWalk, useSaved } from '@/data/saved';
+import { removeWalk, saveWalk, useSaved } from '@/data/saved';
 import { flyTo, getApp, setApp, useApp, type Walk } from '@/data/store';
 import { type Interest, legMeters, planWalk, walkMeters, walkMinutes } from '@/data/walk';
 import { startLocation } from '@/hooks/use-location';
@@ -52,8 +52,10 @@ export function WalksScreen() {
     setApp({ walk: w, walkStep: null });
     // centre on the whole walk; a 2 km loop fits a phone screen at zoom 15
     const pts = [w.origin, ...w.stops.map((s) => s.ll)];
-    const c: [number, number] = [pts.reduce((a, p) => a + p[0], 0) / pts.length, pts.reduce((a, p) => a + p[1], 0) / pts.length];
-    flyTo(c, w.km >= 4 ? 14.3 : w.km >= 2 ? 14.9 : 15.5);
+    const lats = pts.map((p) => p[1]);
+    // the map panel covers the lower part of the screen: aim below the walk so it sits in the open part above
+    const c: [number, number] = [pts.reduce((a, p) => a + p[0], 0) / pts.length, (Math.min(...lats) + Math.max(...lats)) / 2 - (Math.max(...lats) - Math.min(...lats)) * 0.45];
+    flyTo(c, w.km >= 4 ? 14.1 : w.km >= 2 ? 14.7 : 15.3);
     router.navigate('/');
   };
   const gmaps = (w: Walk) => {
@@ -115,6 +117,9 @@ export function WalksScreen() {
             <Pressable key={s.at} accessibilityRole="button" style={({ pressed }) => [styles.stop, pressed && { backgroundColor: colors.chip }]} onPress={() => show(s.walk)}>
               <Text style={[type.body, { flex: 1 }]}>{s.title}</Text>
               <Text style={type.caption}>{s.walk.stops.length} {plural(s.walk.stops.length, 'остановка', 'остановки', 'остановок')}</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel={`Удалить прогулку ${s.title}`} onPress={() => removeWalk(s.at)} hitSlop={8}>
+                <Text style={{ color: colors.accent, fontSize: 14 }}>Удалить</Text>
+              </Pressable>
             </Pressable>
           ))}
         </View>

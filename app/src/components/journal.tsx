@@ -20,12 +20,8 @@ export function Journal() {
     return () => { live = false; };
   }, [key]);   // eslint-disable-line react-hooks/exhaustive-deps
 
-  const total = Object.keys(journal).length;
   return (
     <View style={{ gap: spacing.md }}>
-      <Text style={type.subhead}>
-        {total ? `Печатей в дневнике: ${total}.` : 'Пока пусто.'} Подойдите к отмеченному зданию на карте ближе чем на 60 м, и печать можно будет поставить.
-      </Text>
       {cities.map((c) => <CityPage key={c.gm} city={c} />)}
     </View>
   );

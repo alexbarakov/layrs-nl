@@ -31,9 +31,10 @@ export function LayrsMap() {
   const walkStep = useApp((s) => s.walkStep);
   const me = useApp((s) => s.me);
   const stampsHere = useApp((s) => s.stampsHere);
+  const showStamps = useApp((s) => s.showStamps);
   const journal = useJournal();
   const layers = useMemo(() => buildingLayers(state), [state]);
-  const overlay = useMemo(() => overlayData({ walk, walkStep, me, stampsHere }, journal), [walk, walkStep, me, stampsHere, journal]);
+  const overlay = useMemo(() => overlayData({ walk, walkStep, me, stampsHere, showStamps }, journal), [walk, walkStep, me, stampsHere, showStamps, journal]);
   const oFilter = overviewFilter(state.year);
 
   useEffect(() => {

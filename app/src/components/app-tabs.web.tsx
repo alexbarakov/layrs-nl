@@ -20,7 +20,7 @@ export default function AppTabs() {
         <View style={styles.bar}>
           <TabTrigger name="index" href="/" asChild><TabButton>Карта</TabButton></TabTrigger>
           <TabTrigger name="walks" href="/walks" asChild><TabButton>Маршруты</TabButton></TabTrigger>
-          <TabTrigger name="mine" href="/mine" asChild><TabButton>Мои</TabButton></TabTrigger>
+          <TabTrigger name="stamps" href="/stamps" asChild><TabButton>Печати</TabButton></TabTrigger>
           <TabTrigger name="search" href="/search" asChild><TabButton>Поиск</TabButton></TabTrigger>
         </View>
       </TabList>

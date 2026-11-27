@@ -14,9 +14,9 @@ export default function AppTabs() {
         <NativeTabs.Trigger.Label>Маршруты</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="figure.walk" md="directions_walk" />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="mine">
-        <NativeTabs.Trigger.Label>Мои</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="bookmark" md="bookmark" />
+      <NativeTabs.Trigger name="stamps">
+        <NativeTabs.Trigger.Label>Печати</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="seal" md="approval" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="search" role="search">
         <NativeTabs.Trigger.Label>Поиск</NativeTabs.Trigger.Label>

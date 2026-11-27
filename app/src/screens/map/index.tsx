@@ -8,7 +8,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Chip } from '@/components/chip';
 import { LayrsMap } from '@/components/layrs-map';
-import { CITIES, HOME, LENS_CITIES, YEAR_MAX, YEAR_MIN } from '@/data/config';
+import { Swatches } from '@/components/swatches';
+import { CITIES, HOME, LENS_COLORS, YEAR_MAX, YEAR_MIN } from '@/data/config';
+import { BASE_LAYERS } from '@/data/layers';
 import { loadLenses } from '@/data/places';
 import { COLLECT_RADIUS_M, ERA_INK, MAX_ACCURACY_M, loadStamps, useJournal } from '@/data/stamps';
 import { flyTo, getApp, setApp, useApp } from '@/data/store';
@@ -31,9 +33,12 @@ export function MapScreen() {
   const me = useApp((s) => s.me);
   const journal = useJournal();
   const [lensCount, setLensCount] = useState(0);
-  const [lensTitle, setLensTitle] = useState<string | null>(null);
+  const [lens, setLens] = useState<{ title: string; groups: number } | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const country = zoom < 9;
+  const base = BASE_LAYERS.find((l) => l.id === mode)!;
+  const layerTitle = lens ? lens.title : base.title;
+  const layerColors = lens ? Array.from({ length: Math.min(lens.groups, 6) }, (_, i) => LENS_COLORS[i]) : base.swatches;
   // the iOS tab bar floats over the screen (83 pt from the bottom edge on an iPhone with a home indicator)
   const tabBar = Platform.OS === 'ios' ? insets.bottom + 56 : 0;
 
@@ -43,7 +48,8 @@ export function MapScreen() {
     loadLenses(gm?.code).then((c) => {
       if (!live) return;
       setLensCount(c ? c.layers.length : 0);
-      setLensTitle(c?.layers.find((l) => l.id === lensId)?.title ?? null);
+      const l = c?.layers.find((x) => x.id === lensId);
+      setLens(l ? { title: l.title, groups: l.groups.length } : null);
       if (!c && lensId) setApp({ lensId: null });
     });
     return () => { live = false; };
@@ -84,7 +90,11 @@ export function MapScreen() {
         style={({ pressed }) => [styles.locate, { top: insets.top + spacing.sm }, pressed && { opacity: 0.7 }]}>
         <SymbolView name={{ ios: 'location.fill', android: 'my_location', web: 'my_location' }} tintColor={colors.blue} size={20} />
       </Pressable>
-      {note ? <Text accessibilityLiveRegion="polite" style={[styles.note, { top: insets.top + 60 }]}>{note}</Text> : null}
+      <Pressable onPress={() => router.push('/layers')} accessibilityRole="button" accessibilityLabel="Слои"
+        style={({ pressed }) => [styles.locate, { top: insets.top + spacing.sm + 52 }, pressed && { opacity: 0.7 }]}>
+        <SymbolView name={{ ios: 'square.3.layers.3d', android: 'layers', web: 'layers' }} tintColor={colors.ink} size={20} />
+      </Pressable>
+      {note ? <Text accessibilityLiveRegion="polite" style={[styles.note, { top: insets.top + 112 }]}>{note}</Text> : null}
 
       <View style={[styles.panel, tabBar ? { paddingBottom: tabBar } : null]}>
         {nearby ? (
@@ -105,13 +115,15 @@ export function MapScreen() {
             <Chip key={c.code} label={c.name} on={!country && gm?.code === c.code} onPress={() => flyTo(c.center, 15.3, { pitch: 55, bearing: -20 })} />
           ))}
         </ScrollView>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
-          <Chip label="Периоды" on={mode === 'periods' && !lensId} onPress={() => setApp({ mode: 'periods', lensId: null })} />
-          <Chip label="Памятники" on={mode === 'monuments' && !lensId} onPress={() => setApp({ mode: 'monuments', lensId: null })} />
-          {gm && LENS_CITIES.has(gm.code) && lensCount ? (
-            <Chip label={lensTitle ? `Линза: ${lensTitle}` : `Линзы · ${lensCount}`} on={!!lensId} tone="accent" onPress={() => router.push('/lenses')} />
-          ) : null}
-        </ScrollView>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Слои. Сейчас: ${layerTitle}`} onPress={() => router.push('/layers')}
+          style={({ pressed }) => [styles.layerBar, pressed && { backgroundColor: colors.chip }]}>
+          <Swatches colors={layerColors} width={40} />
+          <View style={{ flex: 1 }}>
+            <Text style={type.caption}>Слой</Text>
+            <Text style={type.headline} numberOfLines={1}>{layerTitle}</Text>
+          </View>
+          <Text style={styles.layerMore}>{lensCount ? `Все слои · ${lensCount + 3}` : 'Все слои'}</Text>
+        </Pressable>
         <View style={styles.year}>
           <Text style={type.subhead}>Год</Text>
           <View style={{ flex: 1 }}>
@@ -192,5 +204,8 @@ const styles = StyleSheet.create({
   next: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   nearby: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 2, borderRadius: 14, padding: 10, backgroundColor: colors.paper },
   nearbyDot: { width: 14, height: 14, borderRadius: 7 },
+  layerBar: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.paper, borderRadius: 14, borderCurve: 'continuous',
+    paddingVertical: 8, paddingHorizontal: 12 },
+  layerMore: { color: colors.accent, fontSize: 15, fontWeight: '500' },
   arrow: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.paper, alignItems: 'center', justifyContent: 'center' },
 });

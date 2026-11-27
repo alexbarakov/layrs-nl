@@ -27,6 +27,7 @@ export interface AppState {
   stampsHere: Stamp[];                                  // stamps of the municipality under the map centre
   stampsCity: string | null;
   stampId: string | null;                               // stamp opened in its sheet
+  showStamps: boolean;                                  // the stamps layer is on the map
 }
 
 let state: AppState = {
@@ -43,6 +44,7 @@ let state: AppState = {
   stampsHere: [],
   stampsCity: null,
   stampId: null,
+  showStamps: true,
 };
 const subs = new Set<() => void>();
 

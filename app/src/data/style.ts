@@ -24,9 +24,13 @@ const step = (pale: boolean): ExpressionSpecification =>
 export const PERIOD_COLOR: ExpressionSpecification =
   ['case', ['in', ['coalesce', ['get', 'q'], 0], ['literal', [1, 2, 4]]], step(true), step(false)];
 export const MONUMENT_COLOR: ExpressionSpecification = ['case', ['has', 'm'], MONUMENT, '#d9d7d0'];
+// height by 3D BAG: low houses pale, towers deep blue (stops shared with the legend)
+export const HEIGHT_STOPS: [number, string][] = [[0, '#efe9d8'], [6, '#e6d3a0'], [12, '#cfa767'], [20, '#8fae9f'], [35, '#4b7f98'], [70, '#24476e'], [120, '#121f38']];
+export const HEIGHT_COLOR: ExpressionSpecification =
+  ['interpolate', ['linear'], ['coalesce', ['get', 'h'], 0], ...HEIGHT_STOPS.flat()] as ExpressionSpecification;
 const OTHER = '#dedbd3';
 
-export type Mode = 'periods' | 'monuments';
+export type Mode = 'periods' | 'monuments' | 'height';
 export interface LensPaint { groups: number[][] }   // building ids per lens group, in group order
 export interface MapState { mode: Mode; year: number; lens: LensPaint | null }
 
@@ -41,7 +45,7 @@ export function buildingColor(s: MapState): ExpressionSpecification {
     if (arms.length) return ['match', ['get', 'id'], ...arms, OTHER] as unknown as ExpressionSpecification;
     return ['literal', OTHER] as unknown as ExpressionSpecification;
   }
-  return s.mode === 'monuments' ? MONUMENT_COLOR : PERIOD_COLOR;
+  return s.mode === 'monuments' ? MONUMENT_COLOR : s.mode === 'height' ? HEIGHT_COLOR : PERIOD_COLOR;
 }
 export const yearFilter = (year: number): ExpressionSpecification | undefined =>
   year >= 2026 ? undefined : ['all', ['>', ['get', 'y'], 0], ['<=', ['get', 'y'], year]];

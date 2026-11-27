@@ -4,9 +4,9 @@ import type { LayerSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { ERA_INK } from '@/data/stamps';
 import type { AppState } from '@/data/store';
 
-export function overlayData(s: Pick<AppState, 'walk' | 'walkStep' | 'me' | 'stampsHere'>, collected: Record<string, unknown> = {}): GeoJSON.FeatureCollection {
+export function overlayData(s: Pick<AppState, 'walk' | 'walkStep' | 'me' | 'stampsHere' | 'showStamps'>, collected: Record<string, unknown> = {}): GeoJSON.FeatureCollection {
   const f: GeoJSON.Feature[] = [];
-  for (const st of s.stampsHere) {
+  for (const st of s.showStamps ? s.stampsHere : []) {
     f.push({ type: 'Feature', properties: { k: 'stamp', id: st.id, ink: ERA_INK[st.era] ?? ERA_INK[0], got: collected[st.id] ? 1 : 0 },
       geometry: { type: 'Point', coordinates: st.ll } });
   }
