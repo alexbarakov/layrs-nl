@@ -56,7 +56,8 @@ export function LayrsMap() {
       onPress={async (e) => {
         const p = e.nativeEvent.point;
         const hit = await mapRef.current?.queryRenderedFeatures(p, { layers: ['stamp', ...BUILDING_LAYER_IDS, 'walk-stop'] });
-        const f = hit?.[0];
+        // native returns hits in no guaranteed order: a stamp or a walk stop wins over the building under it
+        const f = hit?.find((h: any) => h.properties?.k === 'stamp') ?? hit?.find((h: any) => h.properties?.k === 'stop') ?? hit?.[0];
         if (!f) { setApp({ selected: null }); return; }
         const pr: any = f.properties || {};
         if (pr.k === 'stamp') { setApp({ stampId: String(pr.id) }); return; }

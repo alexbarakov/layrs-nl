@@ -3,7 +3,7 @@ import { Host, Slider } from '@expo/ui';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Chip } from '@/components/chip';
@@ -34,6 +34,8 @@ export function MapScreen() {
   const [lensTitle, setLensTitle] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const country = zoom < 9;
+  // the iOS tab bar floats over the screen (83 pt from the bottom edge on an iPhone with a home indicator)
+  const tabBar = Platform.OS === 'ios' ? insets.bottom + 56 : 0;
 
   // lenses follow the municipality under the map centre
   useEffect(() => {
@@ -84,7 +86,7 @@ export function MapScreen() {
       </Pressable>
       {note ? <Text accessibilityLiveRegion="polite" style={[styles.note, { top: insets.top + 60 }]}>{note}</Text> : null}
 
-      <View style={styles.panel}>
+      <View style={[styles.panel, tabBar ? { paddingBottom: tabBar } : null]}>
         {nearby ? (
           <Pressable accessibilityRole="button" onPress={() => setApp({ stampId: nearby.st.id })}
             style={({ pressed }) => [styles.nearby, { borderColor: ERA_INK[nearby.st.era] }, pressed && { opacity: 0.8 }]}>

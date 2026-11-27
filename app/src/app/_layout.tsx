@@ -3,6 +3,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
 import { loadMunicipalities } from '@/data/places';
+import { colors } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -17,6 +18,8 @@ export default function RootLayout() {
       }} />
       <Stack.Screen name="stamp" options={{
         presentation: 'formSheet', sheetGrabberVisible: true, sheetAllowedDetents: [0.7, 1.0], headerShown: false,
+        // an impression needs plain paper under it, not the iOS glass with the map showing through
+        contentStyle: { backgroundColor: colors.paper },
       }} />
       <Stack.Screen name="lenses" options={{
         presentation: 'formSheet', sheetGrabberVisible: true, sheetAllowedDetents: [0.6, 1.0], headerShown: false,
