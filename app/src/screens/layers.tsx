@@ -10,6 +10,7 @@ import { Icon, IconTile } from '@/components/icon';
 import { CITIES, LENS_CITIES, LENS_COLORS } from '@/data/config';
 import { layerIcon, layerRu, plBuildings, sectionIcon, sectionRu } from '@/data/layers';
 import { type CityLenses, type Lens, loadLenses } from '@/data/places';
+import { useJournal } from '@/data/stamps';
 import { flyTo, setApp, useApp } from '@/data/store';
 import { colors, font, radius, spacing, type } from '@/theme';
 import { plural } from '@/utils/format';
@@ -59,6 +60,7 @@ export function LayersSheet() {
         {sections.map(([s, n]) => <SectionChip key={s} icon={sectionIcon(s)} label={`${sectionRu(s)} · ${n}`} on={section === s} onPress={() => setSection(section === s ? null : s)} />)}
       </ScrollView>
       <View style={styles.grid}>
+        {!section && !needle ? <StampsCard /> : null}
         {shown.map((l) => {
           const on = l.id === lensId;
           return (
@@ -75,6 +77,25 @@ export function LayersSheet() {
       </View>
       {!shown.length ? <Text style={type.subhead}>Ничего не нашлось. Попробуйте другое слово или раздел «Все».</Text> : null}
     </ScrollView>
+  );
+}
+
+// Stamps: the first card of the grid, filled Delft blue. Off by default; on, the city's key buildings show on the map.
+function StampsCard({ compact }: { compact?: boolean }) {
+  const on = useApp((s) => s.showStamps);
+  const here = useApp((s) => s.stampsHere);
+  const journal = useJournal();
+  const got = here.filter((x) => journal[x.id]).length;
+  return (
+    <Pressable onPress={() => setApp({ showStamps: !on })} accessibilityRole="switch" accessibilityState={{ checked: on }}
+      accessibilityLabel={`Печати: ключевые здания города, ${here.length}`}
+      style={({ pressed }) => [styles.card, styles.stamps, compact && { width: '100%', minHeight: 0 }, on && styles.stampsOn, pressed && { opacity: 0.9 }]}>
+      {on ? <Text style={[styles.badge, { backgroundColor: colors.card, color: colors.delft }]}>на карте</Text> : null}
+      <View style={styles.stampsIcon}><Icon name="stamp" size={24} color={colors.delft} width={1.9} /></View>
+      <Text style={[styles.cardTitle, { color: colors.card }]}>Печати</Text>
+      <Text style={styles.stampsSub}>Ключевые здания города. Соберите печати в коллекцию</Text>
+      <Text style={[styles.count, { color: colors.card }]}>{here.length ? `${plBuildings(here.length)} · у вас ${got}` : 'здесь печатей нет'}</Text>
+    </Pressable>
   );
 }
 
@@ -157,9 +178,10 @@ function NoLayers({ name, onGo, onClose }: { name?: string; onGo: (c: [number, n
         <Text style={[type.title, { flex: 1 }]}>Слои{name ? ` · ${name}` : ''}</Text>
         <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Закрыть" style={styles.round}><Icon name="close" size={14} width={2.6} /></Pressable>
       </View>
-      <Text style={type.body}>Здесь слоёв пока нет. Слой — это одна тема из истории города: каналы, война, вера, торговля. Каждый слой выделяет на карте свои здания и рассказывает о них.</Text>
-      <Text style={type.subhead}>Печати и цвет зданий по году, высоте и памятникам есть везде — в настройках карты.</Text>
-      <Text style={[type.subhead, { marginTop: spacing.sm }]}>Слои есть в двух городах</Text>
+      <StampsCard compact />
+      <Text style={[type.body, { marginTop: spacing.sm }]}>Историй города здесь пока нет. Слой — это одна тема из истории города: каналы, война, вера, торговля. Каждый слой выделяет на карте свои здания и рассказывает о них.</Text>
+      <Text style={type.subhead}>Цвет зданий по году, высоте и памятникам есть везде — в настройках карты.</Text>
+      <Text style={[type.subhead, { marginTop: spacing.sm }]}>Истории есть в двух городах</Text>
       {cities.map((c) => <Chip key={c.code} label={c.name} onPress={() => onGo(c.center)} />)}
     </ScrollView>
   );
@@ -167,6 +189,10 @@ function NoLayers({ name, onGo, onClose }: { name?: string; onGo: (c: [number, n
 
 const styles = StyleSheet.create({
   wrap: { padding: spacing.md, paddingTop: spacing.lg, gap: spacing.sm },
+  stamps: { backgroundColor: colors.delft, borderColor: colors.delft },
+  stampsOn: { borderWidth: 3, borderColor: '#0f2f60' },
+  stampsIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
+  stampsSub: { fontSize: 12, lineHeight: 16, color: 'rgba(255,252,245,0.85)' },
   head: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   round: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.chip, alignItems: 'center', justifyContent: 'center' },
   search: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 42, paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.chip, marginTop: spacing.xs },

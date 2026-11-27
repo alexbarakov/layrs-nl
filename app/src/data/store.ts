@@ -45,7 +45,7 @@ let state: AppState = {
   stampsHere: [],
   stampsCity: null,
   stampId: null,
-  showStamps: true,
+  showStamps: false,
   tilt: true,
 };
 const subs = new Set<() => void>();

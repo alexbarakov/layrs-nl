@@ -8,6 +8,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { tabBarSpace } from '@/components/app-tabs';
+import { buildingSheetOpen } from '@/screens/building';
 import { Chip } from '@/components/chip';
 import { Icon, IconTile } from '@/components/icon';
 import { LayrsMap } from '@/components/layrs-map';
@@ -59,7 +60,8 @@ export function MapScreen() {
     return () => { live = false; };
   }, [gm?.code, lensId]);
 
-  useEffect(() => { if (selected) router.push('/building'); }, [selected, router]);
+  // one building sheet at a time: if it is already open, it just shows the newly tapped building
+  useEffect(() => { if (selected && !buildingSheetOpen) router.push('/building'); }, [selected, router]);
   useEffect(() => { if (stampId) router.push('/stamp'); }, [stampId, router]);
 
   useEffect(() => {
@@ -85,6 +87,8 @@ export function MapScreen() {
   };
 
   const base = BASE_LAYERS.find((l) => l.id === mode)!;
+  const showStamps = useApp((s) => s.showStamps);
+  const active = !!lensId || showStamps;
   const place = country ? 'Нидерланды' : gm?.name ?? 'Вне Нидерландов';
   const placeSub = country ? 'вся страна' : gm ? `${gm.province}${lensCount ? ` · ${lensCount} ${plural(lensCount, 'слой', 'слоя', 'слоёв')}` : ''}` : '';
 
@@ -104,8 +108,9 @@ export function MapScreen() {
 
       <View style={[styles.rail, { top: insets.top + spacing.sm }]}>
         <Pressable onPress={() => router.push('/layers')} accessibilityRole="button" accessibilityLabel="Слои"
-          style={({ pressed }) => [styles.btn, styles.btnDelft, pressed && { opacity: 0.8 }]}>
-          <Icon name="layers" size={24} color={colors.card} />
+          style={({ pressed }) => [styles.layersBtn, pressed && { opacity: 0.85 }]}>
+          <Icon name="layers" size={28} color={colors.card} width={2} />
+          {active ? <View style={styles.layersDot} /> : null}
         </Pressable>
         <Pressable onPress={() => router.push('/map-settings')} accessibilityRole="button" accessibilityLabel="Настройки карты"
           style={({ pressed }) => [styles.btn, pressed && { opacity: 0.7 }]}>
@@ -117,7 +122,7 @@ export function MapScreen() {
         </Pressable>
       </View>
 
-      <View style={[styles.zoom, { top: insets.top + 190 }]}>
+      <View style={[styles.zoom, { top: insets.top + 200 }]}>
         <Pressable onPress={() => zoomBy(1)} accessibilityRole="button" accessibilityLabel="Приблизить" style={({ pressed }) => [styles.zoomBtn, pressed && { backgroundColor: colors.chip }]}>
           <Icon name="plus" size={20} width={2.4} />
         </Pressable>
@@ -271,7 +276,10 @@ const styles = StyleSheet.create({
   placePin: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
   placeName: { fontFamily: font.bold, fontSize: 18, color: colors.ink, letterSpacing: -0.3 },
   placeSub: { fontSize: 11, color: colors.mute },
-  rail: { position: 'absolute', right: spacing.sm + 4, gap: 8 },
+  rail: { position: 'absolute', right: spacing.sm + 4, gap: 8, alignItems: 'flex-end' },
+  layersBtn: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: colors.delft,
+    borderWidth: 3, borderColor: colors.card, boxShadow: '0 4px 14px rgba(31,79,150,0.5)' },
+  layersDot: { position: 'absolute', top: -2, right: -2, width: 14, height: 14, borderRadius: 7, backgroundColor: colors.accent, borderWidth: 2, borderColor: colors.card },
   btn: { width: 46, height: 46, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', ...card },
   btnDelft: { backgroundColor: colors.delft, borderColor: colors.delft },
   zoom: { position: 'absolute', right: spacing.sm + 4, width: 46, borderRadius: radius.md, overflow: 'hidden', ...card },

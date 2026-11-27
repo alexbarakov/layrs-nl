@@ -23,6 +23,9 @@ import { meters, num, Q_TEXT, yearLabel } from '@/utils/format';
 /** The first sentence of a layer's text: what the layer is about, when the building has no story of its own. */
 const firstSentence = (t?: string) => (t ? (t.match(/^.*?[.!?](\s|$)/)?.[0] ?? t).trim() : '');
 
+/** True while the building sheet is on screen: a tap on another building then only swaps what it shows. */
+export let buildingSheetOpen = false;
+
 export function BuildingSheet() {
   const router = useRouter();
   const b = useApp((s) => s.selected);
@@ -40,7 +43,7 @@ export function BuildingSheet() {
     if (b) buildingMedia(b.id, b.ll, b.m).then((m) => live && setMedia(m)).catch(() => live && setMedia({ photos: [] }));
     return () => { live = false; };
   }, [b?.id]);   // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => () => setApp({ selected: null }), []);
+  useEffect(() => { buildingSheetOpen = true; return () => { buildingSheetOpen = false; setApp({ selected: null }); }; }, []);
   // nothing selected (e.g. the state was reset): close instead of showing an empty sheet
   useEffect(() => { if (!b && router.canGoBack()) router.back(); }, [b, router]);
   if (!b) return <View style={styles.wrap}><Text style={type.subhead}>Здание не выбрано.</Text></View>;

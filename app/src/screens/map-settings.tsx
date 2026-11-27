@@ -8,7 +8,6 @@ import { Swatches } from '@/components/swatches';
 import { BASE_LAYERS } from '@/data/layers';
 import { flyTo, getApp, setApp, useApp } from '@/data/store';
 import { colors, font, radius, spacing, type } from '@/theme';
-import { plural } from '@/utils/format';
 
 const THUMB = {
   periods: require('../../assets/layers/periods.jpg'),
@@ -25,10 +24,7 @@ export function MapSettingsSheet() {
   const router = useRouter();
   const mode = useApp((s) => s.mode);
   const lensId = useApp((s) => s.lensId);
-  const showStamps = useApp((s) => s.showStamps);
   const tilt = useApp((s) => s.tilt);
-  const stampsHere = useApp((s) => s.stampsHere);
-  const city = useApp((s) => s.stampsCity);
   const cur = BASE_LAYERS.find((l) => l.id === mode)!;
 
   const setTilt = (v: boolean) => {
@@ -67,16 +63,8 @@ export function MapSettingsSheet() {
         </View>
       )}
 
-      <Text style={[type.subhead, { marginTop: spacing.md }]}>Поверх карты</Text>
+      <Text style={[type.subhead, { marginTop: spacing.md }]}>Вид</Text>
       <View style={styles.group}>
-        <View style={styles.row}>
-          <IconTile name="stamp" size={40} />
-          <View style={{ flex: 1 }}>
-            <Text style={type.body}>Печати</Text>
-            <Text style={type.caption}>{stampsHere.length ? `${stampsHere.length} ${plural(stampsHere.length, 'здание', 'здания', 'зданий')}${city ? ` в ${city}` : ''}` : 'Здесь печатей нет'}</Text>
-          </View>
-          <Switch value={showStamps} onValueChange={(v) => setApp({ showStamps: v })} trackColor={{ true: colors.delft }} accessibilityLabel="Печати" />
-        </View>
         <View style={[styles.row, { borderBottomWidth: 0 }]}>
           <IconTile name="cube" size={40} />
           <View style={{ flex: 1 }}>
