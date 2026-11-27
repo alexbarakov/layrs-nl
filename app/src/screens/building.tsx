@@ -6,7 +6,8 @@ import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { Chip } from '@/components/chip';
+import { ChatGptMark, ClaudeMark, MapsMark, RegisterMark } from '@/components/app-marks';
+import { Icon } from '@/components/icon';
 import { StampArt } from '@/components/stamp-art';
 import { LENS_COLORS } from '@/data/config';
 import { sectionRu } from '@/data/layers';
@@ -111,25 +112,41 @@ export function BuildingSheet() {
             <Text style={note?.story ? type.story : type.subhead} selectable numberOfLines={note?.story ? undefined : 3}>
               {note?.story || firstSentence(lens.text)}
             </Text>
-            {note?.source ? <Text style={styles.link} onPress={() => open(note.source!)} accessibilityRole="link">Источник</Text> : null}
+            {note?.source ? <Text style={styles.source} onPress={() => open(note.source!)} accessibilityRole="link">Источник</Text> : null}
           </Pressable>
         );
       })}
       {!lenses.length && !city ? <Text style={type.caption}>Слои истории города пока есть только в Амстердаме и Делфте.</Text> : null}
 
-      <Text style={styles.head}>Спросить об этом здании</Text>
-      <View style={styles.row}>
-        <Chip label="Спросить ChatGPT" onPress={() => Linking.openURL(chatgptUrl(askPrompt(b, named, gm?.name)))} />
-        <Chip label="Спросить Claude" onPress={() => Linking.openURL(claudeUrl(askPrompt(b, named, gm?.name)))} />
-      </View>
-      <View style={styles.row}>
-        {b.ll ? <Chip label="Открыть в Google Maps" tone="accent" on onPress={() => open(googleMapsUrl(b.ll!))} /> : null}
-        <Chip label="BAG viewer" onPress={() => open(`https://bagviewer.kadaster.nl/lvbag/bag-viewer/?objectId=${b.id}`)} />
+      <Text style={styles.head}>Узнать больше</Text>
+      <View style={styles.links}>
+        <LinkRow mark={<ClaudeMark />} title="Спросить Claude" sub="История и архитектура этого здания"
+          onPress={() => Linking.openURL(claudeUrl(askPrompt(b, named, gm?.name)))} />
+        <LinkRow mark={<ChatGptMark />} title="Спросить ChatGPT" sub="Тот же вопрос с адресом и координатами"
+          onPress={() => Linking.openURL(chatgptUrl(askPrompt(b, named, gm?.name)))} />
+        {b.ll ? <LinkRow mark={<MapsMark />} title="Открыть в Google Maps" sub="Маршрут, Street View, отзывы"
+          onPress={() => open(googleMapsUrl(b.ll!))} /> : null}
+        <LinkRow mark={<RegisterMark />} title="BAG viewer" sub="Кадастр: год, площадь, назначение" last
+          onPress={() => open(`https://bagviewer.kadaster.nl/lvbag/bag-viewer/?objectId=${b.id}`)} />
       </View>
       <Text style={[type.caption, { marginTop: spacing.sm }]} selectable>
         BAG {b.id}. Данные: 3D BAG (CC BY 4.0), BAG, RCE (CC BY), Wikidata, фото Wikimedia Commons (лицензия у каждого фото){lenses.length ? `, LAYRS ${city?.city}` : ''}.
       </Text>
     </ScrollView>
+  );
+}
+
+function LinkRow({ mark, title, sub, last, onPress }: { mark: React.ReactNode; title: string; sub: string; last?: boolean; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="link" accessibilityLabel={title}
+      style={({ pressed }) => [styles.link, last && { borderBottomWidth: 0 }, pressed && { backgroundColor: colors.chip }]}>
+      {mark}
+      <View style={{ flex: 1 }}>
+        <Text style={type.headline}>{title}</Text>
+        <Text style={type.caption} numberOfLines={1}>{sub}</Text>
+      </View>
+      <Icon name="chevron" size={14} color="#a39c8c" width={2.6} />
+    </Pressable>
   );
 }
 
@@ -161,6 +178,7 @@ const styles = StyleSheet.create({
   layerHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   dot: { width: 12, height: 12, borderRadius: 3 },
   onMark: { fontSize: 13, color: colors.accent, fontWeight: '600' },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.sm },
-  link: { color: colors.accent, fontSize: 14 },
+  links: { backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' },
+  link: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 62, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.line },
+  source: { color: colors.delft, fontSize: 14 },
 });
