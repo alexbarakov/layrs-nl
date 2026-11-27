@@ -1,4 +1,5 @@
 // Profile: the travel journal at a glance, the app language, map settings, sources. No sign-in: all of it stays on the phone.
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -59,7 +60,10 @@ export function ProfileScreen() {
         <Row icon="book" title="Источники и лицензии" onPress={() => WebBrowser.openBrowserAsync('https://github.com/alexbarakov/layrs-nl#sources')} />
         <Row icon="mail" title="Код и обратная связь" onPress={() => WebBrowser.openBrowserAsync('https://github.com/alexbarakov/layrs-nl/issues')} last />
       </View>
-      <Text style={[type.caption, { textAlign: 'center', marginTop: spacing.md }]}>LAYRS NL 0.1 · данные, версия {DATA_REV}</Text>
+      <View style={{ alignItems: 'center', gap: 6, marginTop: spacing.lg }}>
+        <Image source={require('../../assets/images/logo.png')} style={{ width: 150, height: 66 }} contentFit="contain" accessibilityLabel="LAYRS" />
+        <Text style={type.caption}>Look at your city like never before · 0.1 · данные {DATA_REV}</Text>
+      </View>
     </ScrollView>
   );
 }
