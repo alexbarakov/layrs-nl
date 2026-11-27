@@ -1,15 +1,18 @@
 // Walks tab: three questions (from where, what to see, how long), then the route with its stops.
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Chip } from '@/components/chip';
+import { Icon, IconTile } from '@/components/icon';
+import { layerIcon, layerRu, plBuildings } from '@/data/layers';
+import { type CityLenses, lensGroups, loadLenses } from '@/data/places';
 import { removeWalk, saveWalk, useSaved } from '@/data/saved';
-import { flyTo, getApp, setApp, useApp, type Walk } from '@/data/store';
+import { flyTo, getApp, setApp, type Stop, useApp, type Walk } from '@/data/store';
 import { type Interest, legMeters, planWalk, walkMeters, walkMinutes } from '@/data/walk';
 import { startLocation } from '@/hooks/use-location';
-import { colors, spacing, type } from '@/theme';
+import { colors, font, spacing, type } from '@/theme';
 import { meters, plural, yearLabel } from '@/utils/format';
 
 const INTERESTS: [Interest, string][] = [['mon', 'Памятники'], ['old', 'Старые дома'], ['eras', 'Разные эпохи'], ['tall', 'Высотные']];
@@ -22,12 +25,17 @@ export function WalksScreen() {
   const [from, setFrom] = useState<'me' | 'map'>('map');
   const [want, setWant] = useState<Set<Interest>>(new Set(['mon', 'old']));
   const [km, setKm] = useState(2);
+  const [stops, setStops] = useState(8);
+  const [layers, setLayers] = useState<Set<string>>(new Set());
+  const [city, setCity] = useState<CityLenses | null>(null);
+  useEffect(() => { let live = true; loadLenses(gm?.code).then((c) => { if (live) { setCity(c); setLayers(new Set()); } }); return () => { live = false; }; }, [gm?.code]);
+  const toggleLayer = (id: string) => setLayers((l) => { const n = new Set(l); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const [loop, setLoop] = useState(true);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Walk | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const toggle = (k: Interest) => setWant((w) => { const n = new Set(w); n.has(k) ? n.delete(k) : n.add(k); if (!n.size) n.add('mon'); return n; });
+  const toggle = (k: Interest) => setWant((w) => { const n = new Set(w); n.has(k) ? n.delete(k) : n.add(k); return n; });
 
   async function build() {
     setBusy(true); setError(null); setResult(null);
@@ -40,7 +48,14 @@ export function WalksScreen() {
       origin = me.ll;
     }
     try {
-      const w = await planWalk(origin, km, loop, want);
+      // the chosen city layers: their buildings get a bonus, and buildings with stories join the candidates
+      const layerIds = new Set<string>(), extra: Stop[] = [];
+      for (const l of city?.layers ?? []) {
+        if (!layers.has(l.id)) continue;
+        lensGroups(city!, l).flat().forEach((id) => layerIds.add(String(id).padStart(16, '0')));
+        for (const [bag, n] of Object.entries(l.notes)) if (n.ll) extra.push({ ll: n.ll, id: bag, y: 0, h: 0, m: 0, q: 0, gm: gm?.code ?? '' });
+      }
+      const w = await planWalk(origin, km, loop, layers.size && !want.size ? new Set() : want, { layerIds, extra, stops });
       if (!w.stops.length) setError('Рядом нет зданий под выбранные интересы. Увеличьте длину или добавьте «Старые дома».');
       else setResult(w);
     } catch {
@@ -77,6 +92,33 @@ export function WalksScreen() {
       <Group label="Что смотреть">
         {INTERESTS.map(([k, l]) => <Chip key={k} label={l} on={want.has(k)} onPress={() => toggle(k)} />)}
       </Group>
+      {city ? (
+        <View style={{ gap: 6 }}>
+          <Text style={type.caption}>Слои {gm?.name}: по каким историям идти</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: spacing.md }} style={{ marginHorizontal: -spacing.md }}>
+            {city.layers.map((l) => {
+              const on = layers.has(l.id);
+              return (
+                <Pressable key={l.id} onPress={() => toggleLayer(l.id)} accessibilityRole="checkbox" accessibilityState={{ checked: on }}
+                  style={[styles.layer, on && styles.layerOn]}>
+                  <IconTile name={layerIcon(l.title, l.section)} size={34} />
+                  <Text style={styles.layerTitle} numberOfLines={2}>{layerRu(l.title)}</Text>
+                  <Text style={type.caption}>{plBuildings(l.count)}</Text>
+                  {on ? <View style={styles.tick}><Icon name="check" size={12} color={colors.card} width={3} /></View> : null}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      ) : null}
+      <View style={{ gap: 6 }}>
+        <Text style={type.caption}>Сколько остановок</Text>
+        <View style={styles.stepper}>
+          <Pressable onPress={() => setStops(Math.max(3, stops - 1))} accessibilityRole="button" accessibilityLabel="Меньше остановок" style={styles.stepBtn}><Icon name="minus" size={18} width={2.4} /></Pressable>
+          <Text style={styles.stepValue} accessibilityLiveRegion="polite">{stops} {plural(stops, 'остановка', 'остановки', 'остановок')}</Text>
+          <Pressable onPress={() => setStops(Math.min(20, stops + 1))} accessibilityRole="button" accessibilityLabel="Больше остановок" style={styles.stepBtn}><Icon name="plus" size={18} width={2.4} /></Pressable>
+        </View>
+      </View>
       <Group label="Длина пешком">
         {[1, 2, 3, 5].map((k) => <Chip key={k} label={`${k} км`} on={km === k} onPress={() => setKm(k)} />)}
       </Group>
@@ -141,6 +183,13 @@ const styles = StyleSheet.create({
   fill: { flex: 1, backgroundColor: colors.paper },
   wrap: { padding: spacing.md, gap: spacing.md, paddingBottom: 120 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' },
+  layer: { width: 132, minHeight: 124, padding: 10, gap: 6, borderRadius: 14, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line },
+  layerOn: { borderWidth: 2, borderColor: colors.delft },
+  layerTitle: { fontFamily: font.semibold, fontSize: 14, lineHeight: 18, color: colors.ink },
+  tick: { position: 'absolute', top: 8, right: 8, width: 20, height: 20, borderRadius: 10, backgroundColor: colors.delft, alignItems: 'center', justifyContent: 'center' },
+  stepper: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 4, padding: 4, borderRadius: 24, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line },
+  stepBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.chip, alignItems: 'center', justifyContent: 'center' },
+  stepValue: { minWidth: 130, textAlign: 'center', fontSize: 16, fontWeight: '600', color: colors.ink, fontVariant: ['tabular-nums'] },
   result: { gap: spacing.sm, paddingTop: spacing.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line },
   stop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
   n: { width: 24, height: 24, borderRadius: 12, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },

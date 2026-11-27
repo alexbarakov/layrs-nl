@@ -5,7 +5,7 @@ import { municipalities, municipalityAt } from './places';
 import type { Stop, Walk } from './store';
 
 export type Interest = 'mon' | 'old' | 'eras' | 'tall';
-const DETOUR = 1.3, MAX_STOPS = 15, MIN_GAP = 45;
+const DETOUR = 1.3, MAX_STOPS = 20, MIN_GAP = 45;
 export const PACE_KMH = 4.5, STOP_MIN = 2;
 
 const R = 6371008.8, rad = (d: number) => (d * Math.PI) / 180;
@@ -37,8 +37,11 @@ async function candidates(center: [number, number], radius: number): Promise<Sto
   return out;
 }
 const ERA = (y: number) => (y < 1600 ? 0 : y < 1666 ? 1 : y < 1800 ? 2 : 3);
-function score(c: Stop, want: Set<Interest>) {
+/** What the walk is for: interests, the city layers to follow (building ids with a bonus) and how many stops. */
+export interface WalkOptions { layerIds?: Set<string>; extra?: Stop[]; stops?: number }
+function score(c: Stop, want: Set<Interest>, layerIds?: Set<string>) {
   let s = 0;
+  if (layerIds?.has(c.id)) s += 4;
   if (want.has('mon') && c.m) s += 3;
   if (want.has('old')) s += c.y < 1650 ? 2.5 : c.y < 1750 ? 1.5 : c.y < 1850 ? 0.5 : 0;
   if (want.has('tall') && c.h >= 25) s += 2;
@@ -46,11 +49,11 @@ function score(c: Stop, want: Set<Interest>) {
 }
 
 /** Greedy insertion by value per metre on straight lines, then 2-opt. */
-async function choose(origin: [number, number], km: number, loop: boolean, want: Set<Interest>) {
+async function choose(origin: [number, number], km: number, loop: boolean, want: Set<Interest>, o: WalkOptions = {}) {
   const budget = (km * 1000) / DETOUR;
   const radius = loop ? budget / 2.2 : budget * 0.9;
-  let cand = (await candidates(origin, radius)).filter((c) => dist(origin, c.ll) <= radius);
-  cand.forEach((c) => (c.s = score(c, want)));
+  let cand = [...(await candidates(origin, radius)), ...(o.extra ?? [])].filter((c) => dist(origin, c.ll) <= radius);
+  cand.forEach((c) => (c.s = score(c, want, o.layerIds)));
   cand = cand.filter((c) => c.s! > 0);
   const best = new Map<string, Stop>();
   for (const c of cand) {
@@ -58,7 +61,7 @@ async function choose(origin: [number, number], km: number, loop: boolean, want:
     if (!best.has(k) || best.get(k)!.s! < c.s!) best.set(k, c);
   }
   cand = [...best.values()].sort((a, b) => b.s! - a.s!).slice(0, 500);
-  const target = Math.min(MAX_STOPS, Math.max(4, Math.round(km * 5)));
+  const target = o.stops ? Math.min(MAX_STOPS, o.stops) : Math.min(MAX_STOPS, Math.max(4, Math.round(km * 5)));
   const gap = Math.min(250, Math.max(MIN_GAP, budget / (target * 1.6)));
   const pts: ([number, number] | Stop)[] = loop ? [origin, origin] : [origin];
   const ll = (p: [number, number] | Stop) => ('ll' in p ? p.ll : p);
@@ -214,8 +217,8 @@ async function route(origin: [number, number], stops: Stop[], loop: boolean, max
   return { stops: ord.slice(1).map((i) => P[i]), legs, len: legs.reduce((a, b) => a + b, 0), path };
 }
 
-export async function planWalk(origin: [number, number], km: number, loop: boolean, want: Set<Interest>): Promise<Walk> {
-  const c = await choose(origin, km, loop, want);
+export async function planWalk(origin: [number, number], km: number, loop: boolean, want: Set<Interest>, o: WalkOptions = {}): Promise<Walk> {
+  const c = await choose(origin, km, loop, want, o);
   const w: Walk = { origin, stops: c.stops, loop, km, len: c.len, legs: null, path: null, routed: false };
   if (!c.stops.length) return w;
   const r = await route(origin, c.stops, loop, km * 1000 * 1.1, false);
