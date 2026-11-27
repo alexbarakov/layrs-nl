@@ -515,3 +515,385 @@ DRAWINGS = {
     "Q914231": rietveld_schroderhuis,
     "Q2426916": muiderslot,
 }
+
+
+# ================= second batch: top by sitelinks =================
+def lean(p, start, k, pivot_y=0.0):
+    """Shear what was drawn since item `start`: a leaning tower (x += k * height)."""
+    out = []
+    for kind, d, w, flag in p.items[start:]:
+        if kind == "c":
+            cx, cy, r = d; out.append((kind, (cx + k * (cy - pivot_y), cy, r), w, flag))
+        else:
+            out.append((kind, [(x + k * (y - pivot_y), y) for x, y in d], w, flag))
+    p.items[start:] = out
+
+
+def shutters(p, x, y, w, h):
+    opening(p, x, y, w, h, "flat", transom=True)
+    p.rect(x - w * 0.42, y, w * 0.38, h, "f"); p.rect(x + w * 1.04, y, w * 0.38, h, "f")
+
+
+def woudagemaal(p: Pen):
+    ground(p, -30, 30)
+    water(p, -30, 30, -0.8, 3)
+    # long engine hall
+    p.rect(-14, 0, 38, 9, "b")
+    roof(p, -14, 9, 38, 6, "hip", ridge_w=28)
+    window_grid(p, -14, 2, 38, 7, 1, 2.6, 5.5, 0, top="round", mullion=True)
+    # tall boiler house at the end, with its chimney
+    p.occlude([(-26, 0), (-12, 0), (-12, 16), (-26, 16)])
+    p.rect(-26, 0, 14, 16, "b")
+    p.poly([(-26.6, 16), (-26.6, 17), (-11.4, 17), (-11.4, 16)], "m")
+    window_grid(p, -26, 2, 14, 3, 2, 2, 5, 7, top="round", mullion=True)
+    p.poly([(20, 15), (20.6, 30), (22.4, 30), (23, 15)], "b", closed=False)
+    p.rect(20.2, 30, 2.6, 0.8, "m")
+    # outlet arches into the canal
+    for k in range(6):
+        p.poly(arc_pts(-8 + k * 5.6, -0.2, 2.2, 1.6, 180, 0, 10), "f", closed=False)
+
+
+def rembrandthuis(p: Pen):
+    ground(p, -14, 14)
+    w, fl = 10, 3
+    p.rect(-w / 2, 0, w, 15, "b")
+    p.line(-w / 2, 1.2, w / 2, 1.2, "f")
+    for k in (-w / 2 + 0.4, w / 2 - 1.2):                     # pilaster strips
+        p.rect(k, 1.2, 0.8, 13.8, "f")
+    for r_ in range(fl):
+        for c_ in range(3):
+            if r_ == 0 and c_ == 1:
+                continue
+            shutters(p, -w / 2 + 1.9 + c_ * 2.9, 1.8 + r_ * 4.4, 1.4, 3.2)
+    opening(p, -0.8, 1.2, 1.6, 3.2, "round", "m")
+    p.poly([(-2, 0), (-2, 1.2), (2, 1.2), (2, 0)], "f")
+    cornice(p, -w / 2, 15, w, 0.4, 0.8)
+    ped = [(-w / 2 - 0.4, 15.8), (0, 19.2), (w / 2 + 0.4, 15.8)]
+    p.poly(ped, "m"); opening(p, -0.6, 16.2, 1.2, 1.8, "flat")
+    for sx in (-1, 1):                                       # neighbours
+        x0 = 5 if sx > 0 else -13
+        p.rect(x0, 0, 8, 13, "m")
+        p.poly(gable(x0, 13, 8, 5 if sx > 0 else 7, "neck" if sx > 0 else "stepped", 3), "m", closed=False)
+        window_grid(p, x0, 1.2, 8, 2, 3, 1.4, 2.6, 4, top="flat")
+
+
+def nieuwe_kerk_amsterdam(p: Pen):
+    ground(p, -24, 24)
+    for sx in (-1, 1):                                       # low buildings either side
+        x0 = 10 if sx > 0 else -22
+        p.rect(x0, 0, 12, 9, "m"); roof(p, x0, 9, 12, 5)
+        window_grid(p, x0, 1.5, 12, 3, 1, 1.6, 4, 0, top="pointed")
+    roof(p, -18, 18, 36, 8)
+    p.line(0, 26, 0, 34, "m"); spire(p, 0, 26, 2.2, 8, tiles=False)          # crossing turret
+    p.occlude([(-9, 0), (9, 0), (9, 20), (0, 36), (-9, 20)])
+    p.rect(-9, 0, 18, 20, "b")
+    g = [(-9, 20), (0, 36), (9, 20)]
+    p.poly(g, "m", closed=False); p.poly([(-7.4, 20.6), (0, 33.4), (7.4, 20.6)], "f")
+    opening(p, -5, 6, 10, 20, "pointed", "m", mullion=True, transom=True)
+    p.line(-2.5, 6, -2.5, 20, "f"); p.line(2.5, 6, 2.5, 20, "f")
+    opening(p, -2, 0, 4, 5, "pointed", "m")
+    for sx in (-10, 10):                                     # stair turrets
+        octagon(p, sx, 0, 2.6, 26, "b")
+        spire(p, sx, 26, 3, 7, tiles=False, cross=False)
+
+
+def huis_ten_bosch(p: Pen):
+    ground(p, -26, 26)
+    for sx in (-1, 1):
+        x0 = 8 if sx > 0 else -24
+        p.rect(x0, 0, 16, 9, "m"); roof(p, x0, 9, 16, 4, "hip", ridge_w=10)
+        window_grid(p, x0, 1.2, 16, 5, 2, 1.4, 2.8, 4, top="flat", transom=True)
+    p.rect(-8, 0, 16, 13, "b")
+    cornice(p, -8, 13, 16, 0.5, 0.7)
+    window_grid(p, -8, 1.2, 16, 5, 2, 1.6, 3.4, 5.5, top="flat", transom=True)
+    p.poly([(-4, 13.7), (0, 16.5), (4, 13.7)], "m")
+    # the Oranjezaal: octagonal drum and dome
+    octagon(p, 0, 16.5, 9, 4, "m")
+    window_grid(p, -4.5, 17.2, 9, 3, 1, 1.2, 2.4, 0, top="round")
+    dome(p, 0, 20.5, 9.6, 5.5, ribs=4)
+    p.line(0, 27.8, 0, 30, "f")
+
+
+def paleis_soestdijk(p: Pen):
+    ground(p, -34, 34)
+    for sx in (-1, 1):                                       # long wings
+        x0 = 9 if sx > 0 else -31
+        p.rect(x0, 0, 22, 7, "m"); roof(p, x0, 7, 22, 2.5, "hip", ridge_w=18)
+        window_grid(p, x0, 1.2, 22, 8, 1, 1.4, 3.4, 0, top="flat", transom=True)
+    p.rect(-9, 0, 18, 12, "b")
+    cornice(p, -9, 12, 18, 0.5, 0.7)
+    window_grid(p, -9, 1.2, 18, 7, 2, 1.4, 3.6, 5.5, top="flat", transom=True)
+    # portico of four columns and a pediment
+    p.occlude([(-5, 0), (5, 0), (5, 12.7), (-5, 12.7)])
+    for k in range(4):
+        x = -4.2 + k * 2.8
+        p.rect(x - 0.45, 1, 0.9, 10.2, "m")
+    p.line(-5, 11.2, 5, 11.2, "m"); p.line(-5, 1, 5, 1, "m")
+    p.poly([(-5.4, 12.7), (0, 15.4), (5.4, 12.7)], "m")
+    # belvedere
+    p.rect(-3, 15.4, 6, 3, "m"); window_grid(p, -3, 15.9, 6, 3, 1, 1, 2, 0, top="round")
+    balustrade(p, -3.2, 18.4, 6.4, 0.9, 6)
+    p.line(0, 19.3, 0, 23, "f"); p.poly([(0, 23), (2.4, 22.3), (0, 21.6)], "f")
+
+
+def paleis_het_loo(p: Pen):
+    ground(p, -30, 30)
+    for sx in (-1, 1):
+        x0 = 9 if sx > 0 else -27
+        p.rect(x0, 0, 18, 11, "m")
+        roof(p, x0, 11, 18, 5, "hip", ridge_w=8)
+        window_grid(p, x0, 1.2, 18, 5, 2, 1.4, 3.4, 5, top="flat", transom=True)
+        for cx in (x0 + 3, x0 + 15):
+            p.rect(cx - 0.6, 14.5, 1.2, 3, "m")
+    p.rect(-9, 0, 18, 13, "b")
+    cornice(p, -9, 13, 18, 0.5, 0.7)
+    roof(p, -9, 13.7, 18, 6, "hip", ridge_w=6)
+    window_grid(p, -9, 1.2, 18, 5, 2, 1.5, 3.8, 5.6, top="flat", transom=True)
+    p.occlude([(-4, 0), (4, 0), (4, 13.7), (5, 13.7), (0, 17), (-5, 13.7), (-4, 13.7)])
+    p.rect(-4, 0, 8, 13.7, "m")
+    window_grid(p, -4, 1.2, 8, 2, 2, 1.5, 3.8, 5.6, top="flat", transom=True)
+    opening(p, -0.9, 0.6, 1.8, 3.6, "round", "m")
+    p.poly([(-5, 13.7), (0, 17), (5, 13.7)], "m"); p.circle(0, 15, 0.8, "f")
+    p.line(0, 17, 0, 22, "f"); p.poly([(0, 22), (2.6, 21.2), (0, 20.4)], "f")
+
+
+def oude_kerk_delft(p: Pen):
+    ground(p, -14, 40)
+    p.rect(6, 0, 32, 12, "b")
+    roof(p, 6, 12, 32, 10)
+    for x in (9, 16, 23, 30):
+        opening(p, x, 2.5, 3.6, 8, "pointed", mullion=True)
+    start = len(p.items)
+    p.rect(-6, 0, 12, 38, "b")
+    opening(p, -2, 0, 4, 7, "pointed", "m")
+    for yy in (12, 22):
+        opening(p, -4.4, yy, 3, 7, "pointed"); opening(p, 1.4, yy, 3, 7, "pointed")
+    clock(p, 0, 32, 2.2)
+    p.line(-6.4, 38, 6.4, 38, "m")
+    for sx in (-5.2, 5.2):                                   # four corner turrets
+        octagon(p, sx, 38, 1.8, 4)
+        spire(p, sx, 42, 2, 6, tiles=False, cross=False)
+    octagon(p, 0, 38, 4, 5)
+    spire(p, 0, 43, 5.4, 18)
+    lean(p, start, 0.035)                                    # the scheve Jan leans east
+
+
+def kunstmuseum_den_haag(p: Pen):
+    ground(p, -34, 34)
+    water(p, -34, 34, -0.8, 3)
+    # long low gallery, the stepped central block, the entrance hall
+    p.rect(-32, 0, 18, 4.5, "m"); p.rect(-32.4, 4.5, 18.8, 0.5, "m")
+    for k in range(9):
+        p.line(-31 + k * 2, 0.6, -31 + k * 2, 4, "f")
+    p.rect(-14, 0, 30, 10, "b"); p.rect(-14.4, 10, 30.8, 0.6, "m")
+    p.rect(-6, 10.6, 16, 5, "b"); p.rect(-6.4, 15.6, 16.8, 0.6, "m")
+    p.rect(-2, 16.2, 8, 3, "m"); p.rect(-2.3, 19.2, 8.6, 0.5, "m")
+    for k in range(7):
+        x = -12 + k * 4
+        p.rect(x, 2, 1, 6.5, "f")
+    for k in range(4):
+        p.rect(-4.5 + k * 3.6, 11.6, 0.8, 3, "f")
+    p.rect(16, 0, 16, 7, "m"); p.rect(15.6, 7, 16.8, 0.5, "m")
+    window_grid(p, 16, 1, 16, 5, 1, 1.6, 4.6, 0, top="flat")
+    p.hatch([(-14, 0), (16, 0), (16, 10), (-14, 10)], step=0.9, angle=0)
+
+
+def teylers_museum(p: Pen):
+    ground(p, -16, 16)
+    water(p, -16, 16, -0.8, 2)
+    for sx in (-1, 1):                                       # neighbours
+        x0 = 9 if sx > 0 else -15
+        p.rect(x0, 0, 6, 11, "m"); p.poly(gable(x0, 11, 6, 4.5, "bell"), "m", closed=False)
+        window_grid(p, x0, 1.2, 6, 2, 3, 1.2, 2.2, 3.4, top="flat")
+    p.rect(-9, 0, 18, 13, "b")
+    p.line(-9, 6, 9, 6, "m")
+    for k in range(4):                                       # columns on two floors
+        x = -6.6 + k * 4.4
+        p.rect(x - 0.4, 0.6, 0.8, 5.2, "f"); p.rect(x - 0.4, 6.4, 0.8, 5.8, "f")
+    for k in range(3):
+        opening(p, -5.5 + k * 4.4, 0.8, 2.2, 4.4, "round")
+        opening(p, -5.5 + k * 4.4, 7, 2.2, 4.6, "round", mullion=True)
+    cornice(p, -9, 13, 18, 0.6, 0.9)
+    balustrade(p, -9, 13.9, 18, 1.2, 14)
+    # attic and the statue group on top
+    p.rect(-4, 13.9, 8, 3.4, "m")
+    p.poly([(-1.8, 17.3), (-1.2, 19.5), (-0.4, 21.2), (0.4, 22.6), (1.2, 21), (1.6, 19), (2.2, 17.3)], "m")
+    p.poly([(0.4, 22.6), (2.6, 23.8), (1.4, 21.4)], "f")
+    p.circle(0.2, 23, 0.5, "f")
+
+
+def portugese_synagoge(p: Pen):
+    ground(p, -24, 24)
+    for sx in (-1, 1):                                       # the low annexes round the court
+        x0 = 13 if sx > 0 else -23
+        p.rect(x0, 0, 10, 5.5, "m"); roof(p, x0, 5.5, 10, 3)
+        window_grid(p, x0, 1, 10, 4, 1, 1.2, 2.6, 0, top="flat", transom=True)
+    p.rect(-13, 0, 26, 17, "b")
+    roof(p, -13, 17, 26, 8, "hip", ridge_w=14)
+    for sx in (-13, 12):
+        p.rect(sx, 0, 1, 17, "f")                            # corner pilasters
+    window_grid(p, -12, 2, 24, 4, 2, 2.6, 6.4, 8, top="round", mullion=True, transom=True)
+    cornice(p, -13, 16.4, 26, 0.6, 0.6)
+
+
+def slot_loevestein(p: Pen):
+    ground(p, -22, 22)
+    water(p, -22, 22, -0.8, 3)
+    p.rect(-11, 0, 18, 14, "b")
+    roof(p, -11, 14, 18, 10, "hip", ridge_w=5)
+    p.line(-11, 0, -11, 14, "m")
+    for yy, n in ((3, 2), (8.5, 3)):
+        window_grid(p, -11, yy, 18, n, 1, 1.4, 2.6, 0, top="seg")
+    opening(p, -3, 0, 2.4, 4, "round", "m")
+    for sx in (-12.4, 8.4):
+        p.rect(sx, 0, 1.4, 14, "f")                          # buttresses
+    # small round tower
+    p.rect(9, 0, 5, 9, "b"); p.line(10.3, 0, 10.3, 9, "f"); p.line(12.7, 0, 12.7, 9, "f")
+    cone(p, 11.5, 9, 5.8, 5)
+    p.poly([(-6, 0), (-6.6, -2.4), (-1.4, -2.4), (-2, 0)], "m", closed=False)
+
+
+def sint_servaas(p: Pen):
+    ground(p, -26, 26)
+    # nave behind
+    p.rect(-24, 0, 48, 13, "m"); roof(p, -24, 13, 48, 8)
+    window_grid(p, -24, 4, 12, 2, 1, 2.4, 6, 0, top="round")
+    window_grid(p, 12, 4, 12, 2, 1, 2.4, 6, 0, top="round")
+    # apse with a dwarf gallery between the two east towers
+    p.occlude([(-8, 0), (8, 0), (8, 16), (-8, 16)])
+    p.rect(-8, 0, 16, 16, "b")
+    opening(p, -1.8, 0, 3.6, 6, "round", "m")
+    window_grid(p, -8, 7.5, 16, 3, 1, 2, 4.6, 0, top="round")
+    for k in range(9):
+        opening(p, -7.4 + k * 1.65, 13, 1.1, 2.4, "round")
+    p.poly(arc_pts(0, 16, 8, 4, 180, 0, 16), "m", closed=False)
+    p.hatch(arc_pts(0, 16, 8, 4, 180, 0, 16), step=0.7)
+    for sx in (-12, 12):
+        p.occlude([(sx - 4, 0), (sx + 4, 0), (sx + 4, 34), (sx - 4, 34)])
+        p.rect(sx - 4, 0, 8, 34, "b")
+        for k, yy in enumerate((6, 13, 20, 27)):
+            n = 1 if k < 2 else 2
+            for j in range(n):
+                xo = sx - (0.9 if n == 1 else 2.4) + j * 3.4
+                opening(p, xo, yy, 1.8, 4.2, "round", mullion=(k == 3))
+            p.line(sx - 4, yy - 1, sx + 4, yy - 1, "f")
+        p.poly([(sx - 4.4, 34), (sx, 42), (sx + 4.4, 34)], "m")
+        p.hatch([(sx - 4.4, 34), (sx, 42), (sx + 4.4, 34)], step=0.7)
+        p.line(sx, 42, sx, 44.5, "f"); p.line(sx - 0.8, 43.6, sx + 0.8, 43.6, "f")
+
+
+def oldehove(p: Pen):
+    ground(p, -14, 14)
+    start = len(p.items)
+    p.rect(-7, 0, 14, 36, "b")
+    for sx in (-7, 5.8):
+        p.rect(sx, 0, 1.2, 36, "f")
+    opening(p, -1.6, 0, 3.2, 5, "round", "m")
+    for yy in (10, 20):
+        for k in (-4, -1, 2):
+            opening(p, k, yy, 2, 6, "round", "f")
+    opening(p, -1.4, 28, 2.8, 5, "round", mullion=True)
+    clock(p, 0, 25.5, 1.4)
+    crenels(p, -7, 36, 14, 6, 0.9)
+    # the small domed lantern on the unfinished top
+    octagon(p, 0, 36.9, 3.4, 3.2)
+    onion(p, 0, 40.1, 3.6, 3)
+    p.line(0, 43.1, 0, 45, "f")
+    lean(p, start, -0.05)
+
+
+def sint_janskathedraal(p: Pen):
+    ground(p, -10, 52)
+    # long church with flying buttresses and pinnacles
+    p.rect(6, 0, 30, 14, "b")
+    roof(p, 6, 14, 30, 11)
+    for k in range(5):
+        x = 8 + k * 6
+        opening(p, x + 1.4, 3, 3, 9, "pointed", mullion=True)
+        p.poly([(x, 0), (x, 8), (x + 0.6, 9)], "f", closed=False)
+        p.line(x, 8, x - 1.2, 14.5, "f")
+        pinnacle(p, x, 14, 1, 4)
+    # transept front with pinnacled gable
+    p.occlude([(36, 0), (46, 0), (46, 18), (41, 30), (36, 18)])
+    p.rect(36, 0, 10, 18, "b")
+    p.poly([(36, 18), (41, 30), (46, 18)], "m", closed=False)
+    opening(p, 38, 4, 6, 15, "pointed", mullion=True, transom=True)
+    for sx in (36, 46):
+        pinnacle(p, sx, 18, 1.2, 6)
+    for k in range(1, 4):
+        pinnacle(p, 36 + k * 1.25, 18 + k * 3, 0.6, 2); pinnacle(p, 46 - k * 1.25, 18 + k * 3, 0.6, 2)
+    # choir, lower
+    p.rect(46, 0, 6, 12, "m"); roof(p, 46, 12, 6, 6, "hip", ridge_w=1.5)
+    # west tower: brick base, stone stage, lantern and spire
+    p.rect(-6, 0, 12, 30, "b")
+    opening(p, -2, 0, 4, 7, "pointed", "m")
+    for yy in (10, 19):
+        opening(p, -4, yy, 2.6, 6.5, "pointed"); opening(p, 1.4, yy, 2.6, 6.5, "pointed")
+    clock(p, 0, 27, 2)
+    balustrade(p, -6.2, 30, 12.4, 1)
+    stage(p, 0, 31, 8.5, 8, n=2, top="pointed", oct_=True)
+    cornice(p, -4.25, 39, 8.5, 0.4, 0.6)
+    stage(p, 0, 39.6, 5.4, 5, n=1, top="round", oct_=True)
+    onion(p, 0, 44.6, 5.6, 4.4)
+    spire(p, 0, 49, 1.6, 6, tiles=False)
+
+
+def sint_nicolaaskerk(p: Pen):
+    ground(p, -18, 18)
+    # crossing dome behind
+    octagon(p, 0, 20, 9, 5)
+    dome(p, 0, 25, 9.6, 6, ribs=4)
+    p.line(0, 33.3, 0, 36, "f"); p.line(-0.9, 35, 0.9, 35, "f")
+    # west front between two towers
+    p.occlude([(-8, 0), (8, 0), (8, 20), (0, 25), (-8, 20)])
+    p.rect(-8, 0, 16, 20, "b")
+    p.poly([(-8, 20), (0, 25), (8, 20)], "m", closed=False)
+    p.circle(0, 14, 3.2, "m"); p.circle(0, 14, 2.2, "f")
+    opening(p, -2.4, 0, 4.8, 8, "round", "m")
+    opening(p, -6.6, 1, 2, 5, "round"); opening(p, 4.6, 1, 2, 5, "round")
+    for sx in (-11, 11):
+        p.occlude([(sx - 4, 0), (sx + 4, 0), (sx + 4, 29), (sx - 4, 29)])
+        p.rect(sx - 4, 0, 8, 26, "b")
+        for yy in (4, 12):
+            opening(p, sx - 1, yy, 2, 5, "round")
+        clock(p, sx, 21.5, 1.8)
+        cornice(p, sx - 4, 26, 8, 0.4, 0.6)
+        stage(p, sx, 26.6, 6, 5, n=2, top="round", oct_=True)
+        dome(p, sx, 31.6, 6.4, 3.4, ribs=2, lantern=False)
+        stage(p, sx, 34.6, 2, 2.4, n=1, oct_=True)
+        p.line(sx, 37, sx, 39.6, "f"); p.line(sx - 0.7, 38.8, sx + 0.7, 38.8, "f")
+
+
+def maastoren(p: Pen):
+    ground(p, -26, 26)
+    # the tall tower with its stepped top and the lower one beside it
+    for x0, w, h in ((-10, 13, 164), (3.5, 9, 120)):
+        p.rect(x0, 0, w, h, "b")
+        for k in range(1, int(w / 1.6)):
+            p.line(x0 + k * 1.6, 3, x0 + k * 1.6, h - 2, "f")
+        for yy in range(8, int(h) - 4, 12):
+            p.line(x0, yy, x0 + w, yy, "f")
+    p.rect(-9, 164, 11, 6, "m"); p.rect(-8, 170, 9, 5, "m")
+    p.line(-3.5, 175, -3.5, 182, "m")
+    p.rect(-22, 0, 12, 7, "m")                                # the low podium
+    window_grid(p, -22, 1, 12, 5, 1, 1.6, 4.6, 0, top="flat")
+
+
+DRAWINGS.update({
+    "Q1121835": woudagemaal,
+    "Q277316": rembrandthuis,
+    "Q1419675": nieuwe_kerk_amsterdam,
+    "Q1072284": huis_ten_bosch,
+    "Q234048": paleis_soestdijk,
+    "Q692381": paleis_het_loo,
+    "Q612065": oude_kerk_delft,
+    "Q1499958": kunstmuseum_den_haag,
+    "Q474563": teylers_museum,
+    "Q1853707": portugese_synagoge,
+    "Q2177577": slot_loevestein,
+    "Q253935": sint_servaas,
+    "Q2018608": oldehove,
+    "Q2050553": sint_janskathedraal,
+    "Q1350750": sint_nicolaaskerk,
+    "Q2143957": maastoren,
+})
