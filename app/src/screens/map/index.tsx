@@ -42,7 +42,7 @@ export function MapScreen() {
   const [timeOpen, setTimeOpen] = useState(false);
   const country = zoom < 9;
   // the iOS tab bar floats over the screen
-  const bottom = Platform.OS === 'ios' ? insets.bottom + 64 : spacing.md;
+  const bottom = Platform.OS === 'ios' ? insets.bottom + 12 : spacing.md;
 
   // city layers follow the municipality under the map centre
   useEffect(() => {
