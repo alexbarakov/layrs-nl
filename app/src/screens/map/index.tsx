@@ -15,7 +15,7 @@ import { flyTo, getApp, setApp, useApp } from '@/data/store';
 import { bearing, dist, legMeters, walkMeters } from '@/data/walk';
 import { startLocation } from '@/hooks/use-location';
 import { colors, radius, spacing, type } from '@/theme';
-import { meters, plural } from '@/utils/format';
+import { meters, plural, yearLabel } from '@/utils/format';
 
 export function MapScreen() {
   const insets = useSafeAreaInsets();
@@ -89,7 +89,7 @@ export function MapScreen() {
           <Pressable accessibilityRole="button" onPress={() => setApp({ stampId: nearby.st.id })}
             style={({ pressed }) => [styles.nearby, { borderColor: ERA_INK[nearby.st.era] }, pressed && { opacity: 0.8 }]}>
             <View style={[styles.nearbyDot, { backgroundColor: ERA_INK[nearby.st.era] }]} />
-            <Text style={[type.headline, { flex: 1 }]} numberOfLines={2}>Вы у {nearby.st.name} — поставить печать</Text>
+            <Text style={[type.headline, { flex: 1 }]} numberOfLines={2}>Вы у {nearby.st.name_nl || nearby.st.name} — поставить печать</Text>
           </Pressable>
         ) : null}
         <WalkStrip />
@@ -162,7 +162,7 @@ function WalkStrip() {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={type.caption}>Остановка {step + 1} из {walk.stops.length}</Text>
-          <Text style={type.headline}>{s.y > 0 ? s.y : 'год неизвестен'}{s.m ? ' · памятник' : ''}</Text>
+          <Text style={type.headline}>{yearLabel(s.y, s.q)}{s.m ? ' · памятник' : ''}</Text>
           <Text style={type.subhead}>{d !== null ? `${meters(d)} по прямой` : `${meters(legMeters(walk, step))} от прошлой остановки`}</Text>
         </View>
       </View>

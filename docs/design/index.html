@@ -174,123 +174,60 @@ h2{scroll-margin-top:16px}
 <section>
   <div class="col">
     <h2 id="screens">Экраны</h2>
-    <p>Карты в макетах настоящие: рендеры стенда на 375×812 из собранных тайлов. Интерфейс поверх них нарисован, данные Делфта посчитаны из BAG. Листайте вбок.</p>
+    <p>Снимки работающего приложения (веб-сборка Expo, экран 375×812, данные из R2). На iPhone шторки здания, линз и печати — нативные. Листайте вбок.</p>
   </div>
   <div class="board" tabindex="0" aria-label="Экраны приложения">
-
-    <!-- 1 country -->
     <figure class="shot">
-      <div class="phone"><div class="screen" role="img" aria-label="Экран «Страна»: карта Нидерландов в клетках по возрасту застройки, шторка со сводкой и вкладки" style="background-image:url(country.jpg)">
-        <div class="island"></div><div class="status"><span>9:41</span><span>●●●</span></div>
-        <div class="sheet">
-          <div class="grab"></div>
-          <div class="h4">Нидерланды</div>
-          <div class="sub num">10,7&nbsp;млн зданий · 49 731 памятник · 342&nbsp;муниципалитета</div>
-          <div class="label">Города с историями</div>
-          <div class="chips"><span class="chip">Амстердам · 30 линз</span><span class="chip">Делфт · 17</span></div>
-          <div class="label">Скачано</div>
-          <div class="chips"><span class="chip">Делфт · 3,4&nbsp;МБ</span><span class="chip">+ скачать город</span></div>
-        </div>
-        <div class="tabs"><span class="on"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg>Карта</span><span><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h6a3 3 0 0 0 0-6h-4a3 3 0 0 1 0-6h6"/></svg>Маршруты</span><span><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12v18l-6-4-6 4z"/></svg>Мои</span><span class="search"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/></svg></span></div>
-      </div></div>
-      <figcaption><b>Страна</b><span>Клетки показывают средний возраст застройки. Шторка отвечает на вопрос «что здесь есть»: где есть истории, что уже скачано.</span></figcaption>
+      <div class="phone"><div class="screen" role="img" aria-label="Карта страны в цветах периодов, шторка с чипами городов и линейкой года" style="background-image:url(app-country.jpg)"></div></div>
+      <figcaption><b>Страна</b><span>Растр по медианному году, подложка, соседи. Чипы городов и год.</span></figcaption>
     </figure>
-
-    <!-- 2 city -->
     <figure class="shot">
-      <div class="phone"><div class="screen" role="img" aria-label="Экран «Город»: Делфт в 3D, шторка с гистограммой периодов, линзами и прогулками" style="background-image:url(delft.jpg)">
-        <div class="island"></div><div class="status"><span>9:41</span><span>●●●</span></div>
-        <div class="sheet">
-          <div class="grab"></div>
-          <div class="h4">Делфт</div>
-          <div class="sub num">37 217 зданий · 597 памятников · старейшее 1200</div>
-          <div class="hist" role="img" aria-label="Здания Делфта по периодам">
-            <i style="height:6%;background:var(--p0)"></i><i style="height:8%;background:var(--p1)"></i><i style="height:7%;background:var(--p2)"></i><i style="height:10%;background:var(--p3)"></i><i style="height:35%;background:var(--p4)"></i><i style="height:61%;background:var(--p5)"></i><i style="height:34%;background:var(--p6)"></i><i style="height:100%;background:var(--p7)"></i><i style="height:85%;background:var(--p8)"></i><i style="height:71%;background:var(--p9)"></i>
-          </div>
-          <div class="label">Линзы Делфта</div>
-          <div class="chips"><span class="chip on">Периоды</span><span class="chip">Памятники</span><span class="chip">Вермеер</span><span class="chip">Делфтский гром 1654</span><span class="chip">Фаянс</span><span class="chip">Ещё 12</span></div>
-          <div class="label">Пойти</div>
-          <div class="group"><div class="row"><span>Прогулка по слою «Вермеер»</span><span class="sub">›</span></div><div class="row"><span>Загадка «Город после взрыва»</span><span class="sub">›</span></div></div>
-        </div>
-        <div class="tabs"><span class="on"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg>Карта</span><span><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h6a3 3 0 0 0 0-6h-4a3 3 0 0 1 0-6h6"/></svg>Маршруты</span><span><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12v18l-6-4-6 4z"/></svg>Мои</span><span class="search"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/></svg></span></div>
-      </div></div>
-      <figcaption><b>Город</b><span>Открывается сам, когда муниципалитет занимает экран. Гистограмма по периодам, линзы этого места, прогулки и загадки.</span></figcaption>
+      <div class="phone"><div class="screen" role="img" aria-label="Делфт в 3D с метками печатей" style="background-image:url(app-city.jpg)"></div></div>
+      <figcaption><b>Город в 3D</b><span>Здания по периодам, метки печатей цветом эпохи, «где я».</span></figcaption>
     </figure>
-
-    <!-- 3 building -->
     <figure class="shot">
-      <div class="phone"><div class="screen" role="img" aria-label="Экран «Здание»: Oude Kerk в Делфте и шторка с карточкой здания" style="background-image:url(oudekerk.jpg)">
-        <div class="island"></div><div class="status"><span>9:41</span><span>●●●</span></div>
-        <div class="sheet" style="padding-bottom:16px">
-          <div class="grab"></div>
-          <div style="display:flex;gap:8px;align-items:center"><span style="width:12px;height:12px;border-radius:3px;background:var(--p0)"></span><span class="sub">до 1600 · BAG 1200</span></div>
-          <div class="h4">Oude Kerk</div>
-          <div class="sub num">Heilige Geestkerkhof 25 · 27,5&nbsp;м</div>
-          <div class="photo">Архивные фото, если город их даёт · тогда → сейчас</div>
-          <p class="story">Старейшая приходская церковь Делфта. Наклон башни заметен с канала Oude Delft.</p>
-          <div class="chips"><span class="chip">Рийксмонумент 11970</span><span class="chip">Вермеер похоронен здесь</span></div>
-          <div class="group"><div class="row"><span>Как датировано</span><span class="sub">›</span></div><div class="row"><span>Источники</span><span class="sub">RCE, BAG, Wikipedia ›</span></div></div>
-        </div>
-      </div></div>
-      <figcaption><b>Здание</b><span>Шторка в три высоты. Низкая: год, период, высота. Средняя: фото, история, линзы. Полная: жители, датировка, источники.</span></figcaption>
+      <div class="phone"><div class="screen" role="img" aria-label="Шторка здания: около 1779, рийксмонумент 12101, три линзы" style="background-image:url(app-building.jpg)"></div></div>
+      <figcaption><b>Здание</b><span>Год с пометкой точности, памятник, линзы и история.</span></figcaption>
     </figure>
-
-    <!-- 4 lenses + time -->
     <figure class="shot">
-      <div class="phone"><div class="screen" role="img" aria-label="Экран «Линзы и время»: памятники Делфта выделены золотым, линейка времени на 1666 году, список линз" style="background-image:url(monuments.jpg)">
-        <div class="island"></div><div class="status"><span>9:41</span><span>●●●</span></div>
-        <div class="rail" style="bottom:282px">
-          <span class="tip num">Делфт до 1666 · 387 зданий</span>
-          <div style="position:relative"><div class="track"><i style="background:var(--p0)"></i><i style="background:var(--p1)"></i><i style="background:#cfd3cc"></i><i style="background:#cfd3cc"></i><i style="background:#cfd3cc"></i><i style="background:#cfd3cc"></i><i style="background:#cfd3cc"></i><i style="background:#cfd3cc"></i><i style="background:#cfd3cc"></i><i style="background:#cfd3cc"></i></div><span class="thumb" style="left:calc(20% - 11px)"></span></div>
-        </div>
-        <div class="sheet">
-          <div class="grab"></div>
-          <div class="h4">Линзы</div>
-          <div class="label">Работают везде</div>
-          <div class="group"><div class="row"><span>Периоды</span><span class="sub">›</span></div><div class="row"><b>Памятники</b><span style="color:#b8860b">●</span></div><div class="row"><span>Высота и этажность</span><span class="sub">›</span></div></div>
-          <div class="label">Только в Делфте</div>
-          <div class="group"><div class="row"><span>Вермеер</span><span class="sub">›</span></div><div class="row"><span>Оборона города</span><span class="sub">›</span></div></div>
-        </div>
-      </div></div>
-      <figcaption><b>Линзы и время</b><span>Одна линза за раз, как на сайтах. Линейка времени ведётся одним пальцем: город показан таким, каким он был в выбранный год.</span></figcaption>
+      <div class="phone"><div class="screen" role="img" aria-label="Список линз Делфта" style="background-image:url(app-lenses.jpg)"></div></div>
+      <figcaption><b>Линзы</b><span>Слои истории города по разделам.</span></figcaption>
     </figure>
-
-    <!-- 5 on site -->
     <figure class="shot">
-      <div class="phone"><div class="screen" role="img" aria-label="Экран «На месте»: синяя точка, загадка по геопозиции и здания рядом" style="background-image:url(delft.jpg)">
-        <div class="island"></div><div class="status"><span>9:41</span><span>●●●</span></div>
-        <span class="dot" style="left:128px;top:250px"></span>
-        <div class="fab" style="top:52px"><svg aria-hidden="true" viewBox="0 0 24 24" fill="#1a73e8"><path d="M12 2l7 19-7-4-7 4z"/></svg></div>
-        <div class="sheet" style="padding-bottom:16px">
-          <div class="grab"></div>
-          <div class="label">Загадка на месте · шаг 2 из 5</div>
-          <div class="h4">Найдите дом, который пережил взрыв 1654 года</div>
-          <p class="story">Он ближе 150 метров. Подсказка: ищите фасад старше соседей.</p>
-          <div class="chips"><span class="chip on">Это он</span><span class="chip">Подсказка</span><span class="chip">Показать</span></div>
-          <div class="label">Рядом с вами, 300&nbsp;м</div>
-          <div class="group"><div class="row"><span>Oude Kerk</span><span class="sub num">80&nbsp;м</span></div><div class="row"><span>Prinsenhof</span><span class="sub num">140&nbsp;м</span></div></div>
-        </div>
-      </div></div>
-      <figcaption><b>На месте</b><span>Новое по сравнению с сайтами: загадки и подсказки по геопозиции. Отвечаешь тапом по дому, который стоит перед тобой.</span></figcaption>
+      <div class="phone"><div class="screen" role="img" aria-label="Линза Vermeer’s Delft с семью зданиями" style="background-image:url(app-lens.jpg)"></div></div>
+      <figcaption><b>Линза</b><span>Легенда, текст и здания с историями.</span></figcaption>
     </figure>
-
-    <!-- 6 mine -->
     <figure class="shot">
-      <div class="phone"><div class="screen" role="img" aria-label="Экран «Мои»: скачанные города, сохранённые здания и загадки" style="background:#f2f2ee">
-        <div class="island"></div><div class="status"><span>9:41</span><span>●●●</span></div>
-        <div style="padding:52px 14px 0;display:grid;gap:10px">
-          <div class="h4" style="margin:0;font:700 26px/1.1 -apple-system,'SF Pro Display',var(--ui)">Мои</div>
-          <div class="label">Офлайн-города</div>
-          <div class="group num"><div class="row"><span>Делфт</span><span class="sub">3,4&nbsp;МБ ✓</span></div><div class="row"><span>Лейден</span><span class="sub">5,4&nbsp;МБ ↓</span></div><div class="row"><span>Гаага</span><span class="sub">18&nbsp;МБ ↓</span></div></div>
-          <div class="label">Сохранённые здания</div>
-          <div class="group"><div class="row"><span>Oude Kerk</span><span class="sub">Делфт</span></div><div class="row"><span>Westerkerk</span><span class="sub">Амстердам</span></div></div>
-          <div class="label">Загадки</div>
-          <div class="group num"><div class="row"><span>Город после взрыва</span><span class="sub">410 / 500</span></div></div>
-          <p class="small" style="font-size:11px">Размеры пакетов посчитаны только для зданий, без подложки и историй. Сохранённое и счёт загадки здесь для примера.</p>
-        </div>
-        <div class="tabs"><span><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg>Карта</span><span><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h6a3 3 0 0 0 0-6h-4a3 3 0 0 1 0-6h6"/></svg>Маршруты</span><span class="on"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12v18l-6-4-6 4z"/></svg>Мои</span><span class="search"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/></svg></span></div>
-      </div></div>
-      <figcaption><b>Мои</b><span>Скачанные города, сохранённые здания, пройденные загадки. Это нативный сгруппированный список, без карточек.</span></figcaption>
+      <div class="phone"><div class="screen" role="img" aria-label="Protected heritage: рийксмонументы красным, муниципальные синим" style="background-image:url(app-lensmap.jpg)"></div></div>
+      <figcaption><b>Линза на карте</b><span>Здания групп в цветах групп, остальное серым.</span></figcaption>
+    </figure>
+    <figure class="shot">
+      <div class="phone"><div class="screen" role="img" aria-label="Плашка «Вы у Legermuseum — поставить печать»" style="background-image:url(app-near.jpg)"></div></div>
+      <figcaption><b>Рядом с печатью</b><span>Ближе 60 м появляется плашка.</span></figcaption>
+    </figure>
+    <figure class="shot">
+      <div class="phone"><div class="screen" role="img" aria-label="Печать Legermuseum, получена 27 ноября" style="background-image:url(app-stamp.jpg)"></div></div>
+      <figcaption><b>Печать</b><span>Оттиск, эпоха, дата, автор фото.</span></figcaption>
+    </figure>
+    <figure class="shot">
+      <div class="phone"><div class="screen" role="img" aria-label="Дневник: Делфт 2 из 12" style="background-image:url(app-journal.jpg)"></div></div>
+      <figcaption><b>Дневник</b><span>Страница города с прогрессом.</span></figcaption>
+    </figure>
+    <figure class="shot">
+      <div class="phone"><div class="screen" role="img" aria-label="Прогулка 2 км, 8 остановок, 1,9 км по улицам" style="background-image:url(app-walks.jpg)"></div></div>
+      <figcaption><b>Прогулка</b><span>Три вопроса и список остановок.</span></figcaption>
+    </figure>
+    <figure class="shot">
+      <div class="phone"><div class="screen" role="img" aria-label="Маршрут из восьми остановок в центре Делфта" style="background-image:url(app-route.jpg)"></div></div>
+      <figcaption><b>Маршрут на карте</b><span>Линия по улицам и номера остановок.</span></figcaption>
+    </figure>
+    <figure class="shot">
+      <div class="phone"><div class="screen" role="img" aria-label="Остановка 1 из 8, 110 м по прямой" style="background-image:url(app-guide.jpg)"></div></div>
+      <figcaption><b>Ведение</b><span>Стрелка и расстояние до остановки.</span></figcaption>
+    </figure>
+    <figure class="shot">
+      <div class="phone"><div class="screen" role="img" aria-label="Поиск «Oude Delft 1»: истории линз и адреса" style="background-image:url(app-search.jpg)"></div></div>
+      <figcaption><b>Поиск</b><span>Истории города и адреса PDOK.</span></figcaption>
     </figure>
   </div>
 </section>
@@ -441,8 +378,9 @@ flowchart LR
       <tr><td>E4</td><td>Шторка печати: оттиск, название, год и эпоха, расстояние; кнопка «Поставить печать» работает только в радиусе.</td><td><span class="tag mvp">MVP</span></td><td>приложение</td></tr>
       <tr><td>E5</td><td>Оттиск с «ударом» и вибрацией; без анимации при «уменьшении движения».</td><td><span class="tag mvp">MVP</span></td><td>приложение</td></tr>
       <tr><td>E6</td><td>Дневник в «Мои»: страница города с прогрессом N/M, полученные печати с наклоном и датой, остальные бледные.</td><td><span class="tag mvp">MVP</span></td><td>приложение</td></tr>
-      <tr><td>E7</td><td>Пять видов оттиска: штемпель, марка, овальная печать, восьмиугольник, гашение. Чёрная краска с фактурой: неровный нажим, пропуски, брызги.</td><td><span class="tag mvp">MVP</span></td><td>данные, приложение</td></tr>
+      <tr><td>E7</td><td>Пять видов оттиска: штемпель, марка, овальная печать, восьмиугольник, гашение. Чёрная краска с фактурой оттиска. Внутри контурный рисунок здания по фото, если он прошёл проверку качества, иначе монограмма.</td><td><span class="tag mvp">MVP</span></td><td>данные, приложение</td></tr>
       <tr><td>E8</td><td>Автор и лицензия фото, по которому сделана зарисовка.</td><td><span class="tag mvp">MVP</span></td><td>приложение</td></tr>
+      <tr><td>E8a</td><td>Рисунки печатей вручную или генерацией для мест без хорошего фото (сейчас 69% с монограммой).</td><td><span class="tag later">1.1</span></td><td>—</td></tr>
       <tr><td>E9</td><td>Постер дневника для печати: все печати страны или города на одном листе.</td><td><span class="tag later">2</span></td><td>—</td></tr>
       <tr><td>E10</td><td>Защита от подделки геопозиции (проверка mock location на Android, разумная скорость перемещения).</td><td><span class="tag later">1.1</span></td><td>—</td></tr>
     </tbody>
@@ -473,7 +411,7 @@ flowchart LR
       <tr><td>Границы</td><td>PDOK BRK (CC BY 4.0), Natural Earth</td><td>342 муниципалитета</td></tr>
       <tr><td>Пешеходные графы</td><td>Top10NL, дороги кроме автомагистралей</td><td>553 МБ на всю страну</td></tr>
       <tr><td>Линзы и истории</td><td>сайты LAYRS Амстердам и Делфт (тексты со ссылками на Википедию)</td><td>47 линз, 13 тыс. текстов</td></tr>
-      <tr><td>Печати</td><td>Wikidata (CC0), фото Wikimedia Commons (лицензия каждого фото)</td><td>337 муниципалитетов, 3172 печати</td></tr>
+      <tr><td>Печати</td><td>Wikidata (CC0), фото Wikimedia Commons (лицензия каждого фото)</td><td>337 муниципалитетов, 3172 печати, 981 с рисунком</td></tr>
     </tbody>
   </table></div>
   <ul class="flags col">
@@ -578,7 +516,7 @@ flowchart LR
   <div class="col">
     <h2 id="stamps">Печати</h2>
     <p>Дневник путешественника, как постер, где отмечаешь места, где был. В каждом муниципалитете от 5 до 20 доминант разных эпох. Печать ставится только на месте: нужно подойти к зданию ближе чем на 60&nbsp;м.</p>
-      <figure style="margin-top:16px"><img src="stamps.jpg" width="1500" height="900" loading="lazy" alt="Пятнадцать печатей разных городов: Concertgebouw, Rembrandthuis, Nieuwe Kerk, Legermuseum, Rotterdam Ahoy, Grote Kerk, Vredespaleis, Huis ten Bosch, Rietveld Schröderhuis, Stadion Galgenwaard, Sint-Jozefkerk, Martinikerk, Sint-Servaasbasiliek, station Maastricht, Pieterskerk" style="width:100%;height:auto;border-radius:12px"><figcaption class="small">Пять видов оттиска на местах из девяти городов.</figcaption></figure>
+      <figure style="margin-top:16px"><img src="stamps.jpg" width="1500" height="900" loading="lazy" alt="Пятнадцать печатей разных городов: Rembrandthuis, Amsterdam Museum, Legermuseum, Synagoge Delft, Rotterdam Ahoy, Schielandshuis, Pulchri Studio, маяк Схевенингена, Rietveld Schröderhuis, Beatrix Theater, Nieuwe Kerk Groningen, Sint Anthonygasthuis, Dinghuis, Vrijthof 8, Hooglandse Kerk" style="width:100%;height:auto;border-radius:12px"><figcaption class="small">Пять видов оттиска на местах из девяти городов.</figcaption></figure>
   </div>
   <div class="walkgrid">
     <div class="col" style="display:grid;gap:18px">
@@ -597,15 +535,15 @@ flowchart LR
       <div><h3>Как выглядит</h3>
         <ul class="flags">
           <li>Пять видов оттиска: почтовый штемпель, марка с перфорацией, овальная печать с лентой, восьмиугольный знак, гашение с волнами. Вид закреплён за местом.</li>
-          <li>Внутри — чёрно-белая архитектурная зарисовка здания: контуры пером, штриховка в тенях, самые тёмные места залиты. Сделана из фото на Wikimedia Commons; автор и лицензия фото в карточке.</li>
+          <li>Внутри — тонкий контурный рисунок здания по фото с Wikimedia Commons: здание отделяется от фона, остаются длинные чёткие контуры, кадр центрируется. Рисунок проходит проверку качества (доля прямых архитектурных линий, заполненность, обрывки); не прошедшие получают монограмму. Сейчас рисунок у 981 из 3172 мест.</li>
           <li>Краска как у настоящего оттиска: неровный нажим, пропуски, слегка растёкшиеся края, редкие брызги. Цвет эпохи остаётся только у метки на карте.</li>
           <li>Без фото печать получает монограмму из инициалов названия.</li>
           <li>В дневнике во вкладке «Мои» у каждого города своя страница с прогрессом. Полученные печати стоят с лёгким наклоном и датой, остальные бледными контурами.</li>
         </ul></div>
     </div>
     <figure class="shot" style="width:272px">
-      <div class="phone"><div class="screen" role="img" aria-label="Дневник печатей: страница Делфта, 1 из 12" style="background-image:url(stamps-journal.jpg)"></div></div>
-      <figcaption><b>Дневник, Делфт</b><span>Получена Nieuwe Kerk, остальные одиннадцать ждут.</span></figcaption>
+      <div class="phone"><div class="screen" role="img" aria-label="Дневник печатей: страница Делфта, 2 из 12" style="background-image:url(app-journal.jpg)"></div></div>
+      <figcaption><b>Дневник, Делфт</b><span>Получены Nieuwe Kerk и Legermuseum, десять ждут.</span></figcaption>
     </figure>
   </div>
 </section>

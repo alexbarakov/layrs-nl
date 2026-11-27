@@ -8,8 +8,8 @@ Per municipality: N = 5..20 on a log scale of its building count (10k -> 5, 200k
 eras (<1500, 1500-1650, 1650-1800, 1800-1900, 1900-1945, 1945+), most sitelinks first, at least 100 m apart.
 Municipalities with fewer than 3 candidates get none.
 
-Stamp art: the Commons photo (P18) as a 400 px thumbnail, turned into a black-and-white architectural sketch (
-XDoG pen lines plus hatching), black on transparent, 256 px PNG. The drawing is a derivative of the
+Stamp art: a clean contour drawing from the Commons photo (P18), kept only when it scores as architecture
+(stamp_styles.lineart); otherwise a monogram. Rendered into one of five rubber-stamp designs, 512 px PNG. The drawing is a derivative of the
 photo and keeps its licence; author and licence come from the Commons API. Without a photo the app draws a monogram.
 
 writes viewer/stamps/<GM>.json, viewer/stamps/index.json, viewer/stamps/img/<qid>.png
@@ -233,8 +233,9 @@ def _render_one(args):
     import stamp_styles as SS
     sid, name, place, year, photo_path, out = args
     ph = open(photo_path, "rb").read() if photo_path and os.path.exists(photo_path) else None
-    open(out, "wb").write(SS.render(sid, name, place, year, ph))
-    return sid
+    png, kind = SS.render(sid, name, place, year, ph)
+    open(out, "wb").write(png)
+    return sid, kind
 
 
 def make_art(stamps):
@@ -265,15 +266,18 @@ def make_art(stamps):
 
     jobs = [(s["id"], s["name_nl"], s["place"], s["year"], photo_path(s) if got.get(s["id"]) else None,
              f"{OUT}/img/{s['id']}.png") for s in stamps]
+    kinds = {}
     with ProcessPoolExecutor(8) as ex:
-        for i, _ in enumerate(ex.map(_render_one, jobs, chunksize=16)):
+        for i, (sid, kind) in enumerate(ex.map(_render_one, jobs, chunksize=16)):
+            kinds[sid] = kind
             if i % 500 == 0:
                 log("rendered", i)
     for s in stamps:
         m = got.get(s["id"])
         s["img"] = f"stamps/img/{s['id']}.png"
         s["style"] = SS.style_of(s["id"])
-        if m:
+        s["art"] = kinds.get(s["id"], "monogram")
+        if m and s["art"] == "lineart":       # the drawing is derived from the photo: credit it
             s["credit"] = {"author": m[1], "license": m[2], "license_url": m[3], "source": m[4]}
         s.pop("file", None)
     return stamps
@@ -317,8 +321,8 @@ def main():
         xs = [s["ll"] for s in v["stamps"]]
         index[code] = {"name": v["name"], "n": len(v["stamps"]), "ll": [round(sum(a for a, _ in xs) / len(xs), 5), round(sum(b for _, b in xs) / len(xs), 5)]}
     json.dump(index, open(f"{OUT}/index.json", "w"), ensure_ascii=False, separators=(",", ":"))
-    with_photo = sum(1 for s in stamps if s.get("credit"))
-    log(f"written: {len(per)} municipalities, {len(stamps)} stamps, {with_photo} sketched from a photo, {len(stamps) - with_photo} monogram")
+    drawn = sum(1 for s in stamps if s.get("art") == "lineart")
+    log(f"written: {len(per)} municipalities, {len(stamps)} stamps, {drawn} line drawings from photos, {len(stamps) - drawn} monograms")
 
 
 if __name__ == "__main__":

@@ -57,10 +57,10 @@ export function StampSheet() {
   return (
     <ScrollView contentContainerStyle={styles.wrap} contentInsetAdjustmentBehavior="automatic">
       <Animated.View style={[styles.art, press]}>
-        <StampArt id={stamp.id} name={stamp.name} era={stamp.era} year={stamp.year} img={stamp.img} size={180} collected={!!got || near} date={got?.at} />
+        <StampArt id={stamp.id} name={stamp.name_nl || stamp.name} era={stamp.era} year={stamp.year} img={stamp.img} size={180} collected={!!got || near} date={got?.at} />
       </Animated.View>
-      <Text style={[type.title, styles.center]}>{stamp.name}</Text>
-      {stamp.name_nl && stamp.name_nl !== stamp.name ? <Text style={[type.subhead, styles.center]}>{stamp.name_nl}</Text> : null}
+      <Text style={[type.title, styles.center]}>{stamp.name_nl || stamp.name}</Text>
+      {stamp.name_nl && stamp.name_nl !== stamp.name ? <Text style={[type.subhead, styles.center]}>{stamp.name}</Text> : null}
       <Text style={[type.caption, styles.center, { color: eraInk }]}>{stamp.year} · {ERA_LABEL[stamp.era]}{city ? ` · ${city}` : ''}</Text>
       <Text style={[type.body, styles.center]} accessibilityLiveRegion="polite">{note ?? status}</Text>
       {!got ? (
@@ -74,7 +74,7 @@ export function StampSheet() {
       </View>
       {stamp.credit ? (
         <Text style={[type.caption, styles.center]}>
-          Зарисовка по фото: {stamp.credit.author || 'автор не указан'}, {stamp.credit.license || 'лицензия на Commons'}.{' '}
+          Рисунок по фото: {stamp.credit.author || 'автор не указан'}, {stamp.credit.license || 'лицензия на Commons'}.{' '}
           <Text style={{ color: colors.accent }} accessibilityRole="link" onPress={() => WebBrowser.openBrowserAsync(stamp.credit!.source)}>Wikimedia Commons</Text>
         </Text>
       ) : null}

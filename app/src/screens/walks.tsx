@@ -50,7 +50,10 @@ export function WalksScreen() {
   }
   const show = (w: Walk) => {
     setApp({ walk: w, walkStep: null });
-    flyTo(w.stops[0].ll, 15.5);
+    // centre on the whole walk; a 2 km loop fits a phone screen at zoom 15
+    const pts = [w.origin, ...w.stops.map((s) => s.ll)];
+    const c: [number, number] = [pts.reduce((a, p) => a + p[0], 0) / pts.length, pts.reduce((a, p) => a + p[1], 0) / pts.length];
+    flyTo(c, w.km >= 4 ? 14.3 : w.km >= 2 ? 14.9 : 15.5);
     router.navigate('/');
   };
   const gmaps = (w: Walk) => {

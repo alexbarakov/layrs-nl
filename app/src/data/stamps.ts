@@ -39,7 +39,7 @@ export const useJournal = () => useSyncExternalStore((f) => { subs.add(f); retur
 export const isCollected = (id: string) => !!journal[id];
 export function collect(s: Stamp, city: string) {
   if (journal[s.id]) return journal[s.id];
-  const c: Collected = { id: s.id, gm: s.gm, city, name: s.name, era: s.era, year: s.year, img: s.img, at: Date.now() };
+  const c: Collected = { id: s.id, gm: s.gm, city, name: s.name_nl || s.name, era: s.era, year: s.year, img: s.img, at: Date.now() };
   journal = { ...journal, [s.id]: c };
   kvSet(KEY, JSON.stringify(journal));
   subs.forEach((f) => f());

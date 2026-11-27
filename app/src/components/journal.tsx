@@ -53,8 +53,8 @@ function CityPage({ city }: { city: CityStamps }) {
           const c = journal[s.id];
           return (
             <Pressable key={s.id} accessibilityRole="button" onPress={() => open(s.id)} style={({ pressed }) => [styles.cell, pressed && { opacity: 0.7 }]}>
-              <StampArt id={s.id} name={s.name} era={s.era} year={s.year} img={s.img} size={88} collected={!!c} date={c?.at} />
-              <Text style={[type.caption, styles.name]} numberOfLines={2}>{s.name}</Text>
+              <StampArt id={s.id} name={s.name_nl || s.name} era={s.era} year={s.year} img={s.img} size={88} collected={!!c} date={c?.at} />
+              <Text style={[type.caption, styles.name]} numberOfLines={2}>{s.name_nl || s.name}</Text>
               {c ? <Text style={[type.caption, styles.date]}>{new Date(c.at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}</Text> : null}
             </Pressable>
           );

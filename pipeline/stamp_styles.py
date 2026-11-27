@@ -75,6 +75,77 @@ def sketch(img_bytes) -> np.ndarray:
     return np.clip((out - 0.15) / 0.6, 0, 1)                             # crisp: push greys to ink or paper
 
 
+def lineart(img_bytes):
+    """Clean thin contour drawing from a photo, centred on the building, and a quality score.
+
+    GrabCut separates the building from a centred box, Canny on a twice bilateral-filtered image gives the contours,
+    short fragments are dropped. Score: share of the drawing made of long near-vertical or near-horizontal segments
+    (architecture), penalised when the drawing is nearly empty, overfull or fragmented. Returns (ink S x S in [0, 1], score)."""
+    import cv2
+    buf = np.frombuffer(img_bytes, np.uint8)
+    img = cv2.imdecode(buf, cv2.IMREAD_COLOR)
+    if img is None:
+        return None, 0.0
+    h, w = img.shape[:2]
+    k = 1000 / max(h, w)
+    img = cv2.resize(img, (int(w * k), int(h * k)), interpolation=cv2.INTER_CUBIC)
+    h, w = img.shape[:2]
+    mask = np.zeros((h, w), np.uint8)
+    bg, fg = np.zeros((1, 65), np.float64), np.zeros((1, 65), np.float64)
+    try:
+        cv2.grabCut(img, mask, (int(w * 0.08), int(h * 0.05), int(w * 0.84), int(h * 0.9)), bg, fg, 4, cv2.GC_INIT_WITH_RECT)
+    except cv2.error:
+        return None, 0.0
+    obj = np.where((mask == 1) | (mask == 3), 255, 0).astype(np.uint8)
+    obj = cv2.morphologyEx(obj, cv2.MORPH_CLOSE, np.ones((15, 15), np.uint8))
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    smooth = cv2.bilateralFilter(cv2.bilateralFilter(gray, 9, 60, 9), 9, 60, 9)
+    v = float(np.median(smooth))
+    edges = cv2.Canny(smooth, int(max(0, 0.66 * v)), int(min(255, 1.33 * v)), L2gradient=True)
+    edges = cv2.bitwise_and(edges, cv2.dilate(obj, np.ones((9, 9), np.uint8)))
+    n, lab, st, _ = cv2.connectedComponentsWithStats((edges > 0).astype(np.uint8), 8)
+    keep = np.zeros_like(edges)
+    long_ = 0
+    for i in range(1, n):
+        if max(st[i, 2], st[i, 3]) >= 28:
+            keep[lab == i] = 255; long_ += 1
+    ys, xs = np.nonzero(keep)
+    if len(xs) < 300:
+        return None, 0.0
+    x0, x1 = np.percentile(xs, [0.5, 99.5]).astype(int); y0, y1 = np.percentile(ys, [0.5, 99.5]).astype(int)
+    crop = keep[y0:y1 + 1, x0:x1 + 1]
+    # architecture score: long straight segments near vertical or horizontal, as a share of all ink
+    lsd = cv2.createLineSegmentDetector(cv2.LSD_REFINE_STD)
+    segs = lsd.detect(crop)[0]
+    straight = 0.0
+    if segs is not None:
+        for a0, b0, a1, b1 in segs.reshape(-1, 4):
+            L = math.hypot(a1 - a0, b1 - b0)
+            ang = abs(math.degrees(math.atan2(b1 - b0, a1 - a0))) % 180
+            if L >= 25 and (min(ang, 180 - ang) < 12 or abs(ang - 90) < 12):
+                straight += L
+    ink_px = float((crop > 0).sum())
+    straight_share = min(1.0, straight / max(1.0, ink_px))
+    hh, ww = crop.shape
+    sc = (S * 0.8) / max(hh, ww)
+    small = cv2.resize(crop, (max(1, int(ww * sc)), max(1, int(hh * sc))), interpolation=cv2.INTER_AREA)
+    canvas = np.zeros((S, S), np.uint8)
+    yy, xx = (S - small.shape[0]) // 2, (S - small.shape[1]) // 2
+    canvas[yy:yy + small.shape[0], xx:xx + small.shape[1]] = small
+    canvas = cv2.threshold(canvas, 40, 255, cv2.THRESH_BINARY)[1]
+    canvas = cv2.dilate(canvas, np.ones((2, 2), np.uint8))
+    cov = float((canvas > 0).mean())
+    frag = long_ / max(1.0, ink_px / 400.0)                    # pieces per 400 px of line: high means noisy
+    score = straight_share
+    if cov < 0.015 or cov > 0.16:
+        score *= 0.3
+    score /= (1.0 + max(0.0, frag - 1.2))
+    return canvas.astype(np.float32) / 255.0, float(score)
+
+
+LINEART_MIN = 0.30   # set from a reviewed sample of 60; below it the stamp gets a monogram
+
+
 def monogram(name: str, year: int) -> np.ndarray:
     """No photo: big initials and the year, as a stamp would carry them."""
     words = [w for w in name.replace("-", " ").split() if len(w) > 2 and w.lower() not in ("de", "het", "van", "the", "of", "en")]
@@ -237,26 +308,31 @@ def _ink_texture(a: np.ndarray, seed: int) -> np.ndarray:
     rng = np.random.default_rng(seed)
     a = np.asarray(Image.fromarray((a * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(0.8)), dtype=np.float32) / 255
     low = Image.fromarray((rng.random((12, 12)) * 255).astype(np.uint8)).resize((S, S), Image.BICUBIC)
-    pressure = 0.7 + 0.3 * np.asarray(low, dtype=np.float32) / 255                 # uneven pressure
+    pressure = 0.85 + 0.15 * np.asarray(low, dtype=np.float32) / 255                 # uneven pressure
     ang = rng.random() * 2 * math.pi
     yy, xx = np.mgrid[0:S, 0:S] / S
     pressure *= 0.82 + 0.18 * (0.5 + 0.5 * np.cos(ang) * (xx - 0.5) * 2 + 0.5 * np.sin(ang) * (yy - 0.5) * 2)
     grain = np.asarray(Image.fromarray((rng.random((S, S)) * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(0.7)), dtype=np.float32) / 255
-    v = a * pressure - (grain - 0.5) * 0.4
-    v = np.clip((v - 0.22) / 0.30, 0, 1)                                              # soft threshold: ragged edges
+    v = a * pressure - (grain - 0.5) * 0.25
+    v = np.clip((v - 0.18) / 0.30, 0, 1)                                              # soft threshold: ragged edges
     holes = np.asarray(Image.fromarray((rng.random((S // 4, S // 4)) * 255).astype(np.uint8)).resize((S, S), Image.BICUBIC), dtype=np.float32) / 255
-    v *= np.where(holes > 0.92, 0.35, 1.0)                                            # missing ink
+    v *= np.where(holes > 0.95, 0.5, 1.0)                                            # missing ink
     flecks = (rng.random((S, S)) > 0.99985).astype(np.float32)
     flecks = np.asarray(Image.fromarray((flecks * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(3)), dtype=np.float32) / 255
     return np.clip(np.maximum(v, flecks * 0.8), 0, 1)
 
 
-def render(qid: str, name: str, place: str, year: int, photo_bytes: bytes | None, style: int | None = None) -> bytes:
-    art = sketch(photo_bytes) if photo_bytes else monogram(name, year)
+def render(qid: str, name: str, place: str, year: int, photo_bytes: bytes | None, style: int | None = None,
+           min_score: float | None = None):
+    """-> (png bytes, kind) where kind is 'lineart' or 'monogram'."""
+    art, score = lineart(photo_bytes) if photo_bytes else (None, 0.0)
+    kind = "lineart"
+    if art is None or score < (LINEART_MIN if min_score is None else min_score):
+        art, kind = monogram(name, year), "monogram"
     st = style_of(qid) if style is None else style
     c = DESIGNS[st](art, name, place, year)
     a = _ink_texture(np.asarray(c, dtype=np.float32) / 255, int(hashlib.md5(qid.encode()).hexdigest()[8:16], 16))
     alpha = Image.fromarray((a * 255).astype(np.uint8)).resize((OUT, OUT), Image.LANCZOS)
     out = Image.new("RGBA", (OUT, OUT), (22, 21, 19, 0)); out.putalpha(alpha)
     buf = io.BytesIO(); out.save(buf, "PNG", optimize=True)
-    return buf.getvalue()
+    return buf.getvalue(), kind

@@ -36,7 +36,7 @@ open data ──► pipeline/ (Python) ──► out/*.pmtiles + viewer/poi, vie
 | `p12_clean_years` | Construction years for the whole country (see Data decisions); updates `out/panden.parquet` | `out/years.parquet` |
 | `p13_rebuild_after_years.sh` | Rebuilds every derived output after `p12` without rerunning `p03`'s first pass | all of the above |
 | `p14_city_layers` | Lens catalogues and per-building group bits from the Amsterdam and Delft sites | `viewer/layers/<GM>.json` |
-| `p15_stamps` | Stamps: 5–20 landmarks per municipality across six eras (Wikidata + our buildings), each with a black-and-white architectural sketch made from its Commons photo | `viewer/stamps/<GM>.json`, `index.json`, `img/<qid>.png` |
+| `p15_stamps` | Stamps: 5–20 landmarks per municipality across six eras (Wikidata + our buildings), each a rubber-stamp impression with a contour drawing from its Commons photo or a monogram | `viewer/stamps/<GM>.json`, `index.json`, `img/<qid>.png` |
 
 `p02_build_pmtiles` is the earlier one-province trial build. Running `p03` again recomputes `out/panden.parquet`
 from the tiles, so run `p12` and `p13` after it.
@@ -102,8 +102,10 @@ Each municipality gets 5 to 20 stamps, more for bigger towns (10,000 buildings �
 Wikidata items with a BAG building id or a rijksmonument number and at least one Wikipedia article; picks go round-robin
 over six eras (before 1500, 1500–1649, 1650–1799, 1800–1899, 1900–1944, from 1945), most Wikipedia languages first, at
 least 100 m apart. A stamp is collected in the app by standing within 60 m of it with GPS accuracy of 50 m or better.
-The stamp is black and white: an architectural pen sketch (XDoG lines and hatching in the shadows) made from the item's
-Commons photo, which keeps that photo's licence; author and licence are shown with it. Photos are cached in
+Each stamp is one of five rubber-stamp designs in black ink. Inside is a clean contour drawing of the building made
+from its Commons photo (GrabCut isolates the building, long Canny contours only), kept when it scores as architecture
+(share of long straight lines, fill, fragments); otherwise a monogram. 981 of 3172 stamps have a drawing. The drawing
+keeps the photo's licence; author and licence are shown with it. Photos are cached in
 `data/raw/commons/`, so restyling never downloads them again.
 
 ## Licence
