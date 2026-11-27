@@ -45,7 +45,7 @@ export function LayrsMap() {
     map.on('moveend', () => {
       const ctr = map.getCenter();
       const gm = municipalityAt(ctr.lng, ctr.lat);
-      setApp({ view: { center: [ctr.lng, ctr.lat], zoom: map.getZoom() }, gm: gm ? { code: gm.code, name: gm.name, province: gm.province } : null });
+      setApp({ view: { center: [ctr.lng, ctr.lat], zoom: map.getZoom(), pitch: map.getPitch(), bearing: map.getBearing() }, gm: gm ? { code: gm.code, name: gm.name, province: gm.province } : null });
     });
     map.on('click', (e: maplibregl.MapMouseEvent) => {
       const stamp = map.getLayer('stamp') ? map.queryRenderedFeatures(e.point, { layers: ['stamp'] })[0] : undefined;
@@ -92,7 +92,7 @@ export function LayrsMap() {
 
   useEffect(() => {
     if (camera.seq === 0) return;
-    mapRef.current?.flyTo({ center: camera.center, zoom: camera.zoom, pitch: camera.pitch ?? 0, bearing: camera.bearing ?? 0, duration: 1600 });
+    mapRef.current?.flyTo({ center: camera.center, zoom: camera.zoom, pitch: camera.pitch ?? 0, bearing: camera.bearing ?? 0, duration: camera.duration ?? 1600 });
   }, [camera]);
 
   return <View ref={host} style={{ position: 'absolute', inset: 0 } as any} />;

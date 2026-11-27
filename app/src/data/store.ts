@@ -11,10 +11,10 @@ export interface Walk {
   origin: [number, number]; stops: Stop[]; loop: boolean; km: number;
   len: number; legs: number[] | null; path: [number, number][] | null; routed: boolean;
 }
-export interface Camera { center: [number, number]; zoom: number; pitch?: number; bearing?: number; seq: number }
+export interface Camera { center: [number, number]; zoom: number; pitch?: number; bearing?: number; duration?: number; seq: number }
 
 export interface AppState {
-  view: { center: [number, number]; zoom: number };   // last reported by the map
+  view: { center: [number, number]; zoom: number; pitch?: number; bearing?: number };   // last reported by the map
   camera: Camera;                                      // where the map should go (seq bumps a move)
   mode: Mode;
   year: number;
@@ -28,6 +28,7 @@ export interface AppState {
   stampsCity: string | null;
   stampId: string | null;                               // stamp opened in its sheet
   showStamps: boolean;                                  // the stamps layer is on the map
+  tilt: boolean;                                        // 3D: buildings seen at an angle when flying to a place
 }
 
 let state: AppState = {
@@ -45,6 +46,7 @@ let state: AppState = {
   stampsCity: null,
   stampId: null,
   showStamps: true,
+  tilt: true,
 };
 const subs = new Set<() => void>();
 
@@ -53,8 +55,13 @@ export function setApp(patch: Partial<AppState> | ((s: AppState) => Partial<AppS
   state = { ...state, ...(typeof patch === 'function' ? patch(state) : patch) };
   subs.forEach((f) => f());
 }
-export function flyTo(center: [number, number], zoom: number, extra: { pitch?: number; bearing?: number } = {}) {
-  setApp((s) => ({ camera: { center, zoom, ...extra, seq: s.camera.seq + 1 } }));
+export function flyTo(center: [number, number], zoom: number, extra: { pitch?: number; bearing?: number; duration?: number } = {}) {
+  setApp((s) => ({ camera: { center, zoom, ...extra, pitch: s.tilt ? extra.pitch : 0, seq: s.camera.seq + 1 } }));
+}
+/** The +/- buttons: same place, angle and heading, one zoom step. */
+export function zoomBy(d: number) {
+  const v = state.view;
+  flyTo(v.center, Math.max(5, Math.min(19, v.zoom + d)), { pitch: v.pitch, bearing: v.bearing, duration: 300 });
 }
 export function useApp<T>(select: (s: AppState) => T): T {
   return useSyncExternalStore(

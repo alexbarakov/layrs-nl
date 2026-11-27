@@ -39,7 +39,7 @@ export function LayrsMap() {
 
   useEffect(() => {
     if (camera.seq === 0) return;
-    cam.current?.flyTo({ center: camera.center, zoom: camera.zoom, pitch: camera.pitch ?? 0, bearing: camera.bearing ?? 0, duration: 1600 });
+    cam.current?.flyTo({ center: camera.center, zoom: camera.zoom, pitch: camera.pitch ?? 0, bearing: camera.bearing ?? 0, duration: camera.duration ?? 1600 });
   }, [camera]);
 
   return (
@@ -52,7 +52,7 @@ export function LayrsMap() {
       onRegionDidChange={(e) => {
         const { center, zoom } = e.nativeEvent;
         const gm = municipalityAt(center[0], center[1]);
-        setApp({ view: { center: [center[0], center[1]], zoom }, gm: gm ? { code: gm.code, name: gm.name, province: gm.province } : null });
+        setApp({ view: { center: [center[0], center[1]], zoom, pitch: (e.nativeEvent as any).pitch ?? 0, bearing: (e.nativeEvent as any).bearing ?? 0 }, gm: gm ? { code: gm.code, name: gm.name, province: gm.province } : null });
       }}
       onPress={async (e) => {
         const p = e.nativeEvent.point;

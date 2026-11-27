@@ -12,7 +12,7 @@ export default function AppTabs() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="walks">
         <NativeTabs.Trigger.Label>Маршруты</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="figure.walk" md="directions_walk" />
+        <NativeTabs.Trigger.Icon sf="point.bottomleft.forward.to.point.topright.scurvepath" md="route" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="stamps">
         <NativeTabs.Trigger.Label>Печати</NativeTabs.Trigger.Label>

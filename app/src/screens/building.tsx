@@ -8,9 +8,10 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 
 import { Chip } from '@/components/chip';
 import { StampArt } from '@/components/stamp-art';
-import { LENS_COLORS, periodOf } from '@/data/config';
+import { LENS_COLORS } from '@/data/config';
 import { sectionRu } from '@/data/layers';
-import { type BuildingMedia, buildingMedia, googleMapsUrl } from '@/data/photos';
+import { askPrompt, type BuildingMedia, buildingMedia, chatgptUrl, claudeUrl, googleMapsUrl } from '@/data/photos';
+import { Linking } from 'react-native';
 import { type CityLenses, lensesOf, loadLenses } from '@/data/places';
 import { ERA_LABEL, useJournal } from '@/data/stamps';
 import { setApp, useApp } from '@/data/store';
@@ -43,7 +44,6 @@ export function BuildingSheet() {
   useEffect(() => { if (!b && router.canGoBack()) router.back(); }, [b, router]);
   if (!b) return <View style={styles.wrap}><Text style={type.subhead}>Здание не выбрано.</Text></View>;
 
-  const p = periodOf(b.y);
   const lenses = lensesOf(city, b.id);
   const named = stamp?.name_nl || lenses.find((l) => l.note?.name)?.note?.name || media?.name;
   const open = (url: string) => WebBrowser.openBrowserAsync(url);
@@ -70,9 +70,10 @@ export function BuildingSheet() {
 
       {/* facts every building has: not layers */}
       <View style={styles.facts}>
-        <Fact label="Построено" value={yearLabel(b.y, b.q)} note={b.q && b.q > 1 ? Q_TEXT[b.q] : p.label} swatch={p.color} />
+        <Fact label="Построено" value={yearLabel(b.y, b.q)} note={b.q && b.q > 1 ? Q_TEXT[b.q] : undefined} />
         <Fact label="Высота" value={`${num(b.h)} м`} />
-        {b.m ? <Fact label="Памятник" value={`№ ${b.m}`} note="рийксмонумент" swatch={colors.monument}
+        {/* the RCE register has the building's description and why it is protected */}
+        {b.m ? <Fact label="Памятник" value="рийксмонумент" note="описание в реестре ›"
           onPress={() => open(`https://monumentenregister.cultureelerfgoed.nl/monumenten/${b.m}`)} /> : null}
       </View>
 
@@ -116,6 +117,11 @@ export function BuildingSheet() {
       })}
       {!lenses.length && !city ? <Text style={type.caption}>Слои истории города пока есть только в Амстердаме и Делфте.</Text> : null}
 
+      <Text style={styles.head}>Спросить об этом здании</Text>
+      <View style={styles.row}>
+        <Chip label="Спросить ChatGPT" onPress={() => Linking.openURL(chatgptUrl(askPrompt(b, named, gm?.name)))} />
+        <Chip label="Спросить Claude" onPress={() => Linking.openURL(claudeUrl(askPrompt(b, named, gm?.name)))} />
+      </View>
       <View style={styles.row}>
         {b.ll ? <Chip label="Открыть в Google Maps" tone="accent" on onPress={() => open(googleMapsUrl(b.ll!))} /> : null}
         <Chip label="BAG viewer" onPress={() => open(`https://bagviewer.kadaster.nl/lvbag/bag-viewer/?objectId=${b.id}`)} />
@@ -127,15 +133,12 @@ export function BuildingSheet() {
   );
 }
 
-function Fact({ label, value, note, swatch, onPress }: { label: string; value: string; note?: string; swatch?: string; onPress?: () => void }) {
+function Fact({ label, value, note, onPress }: { label: string; value: string; note?: string; onPress?: () => void }) {
   const body = (
     <>
       <Text style={type.caption}>{label}</Text>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        {swatch ? <View style={[styles.swatch, { backgroundColor: swatch }]} /> : null}
-        <Text style={[type.headline, onPress && { color: colors.accent }]}>{value}</Text>
-      </View>
-      {note ? <Text style={type.caption} numberOfLines={2}>{note}</Text> : null}
+      <Text style={type.headline}>{value}</Text>
+      {note ? <Text style={[type.caption, onPress && { color: colors.delft }]} numberOfLines={2}>{note}</Text> : null}
     </>
   );
   return onPress
@@ -152,7 +155,6 @@ const styles = StyleSheet.create({
   credit: { fontSize: 11, color: colors.mute },
   facts: { flexDirection: 'row', gap: 8, marginTop: spacing.xs },
   fact: { flex: 1, backgroundColor: colors.card, borderRadius: 12, borderCurve: 'continuous', padding: 10, gap: 2 },
-  swatch: { width: 12, height: 12, borderRadius: 3, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(0,0,0,0.25)' },
   stamp: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.card, borderRadius: 14, borderCurve: 'continuous', padding: 12, marginTop: spacing.xs },
   layer: { backgroundColor: colors.card, borderRadius: 14, borderCurve: 'continuous', padding: 12, gap: 8, borderWidth: 2, borderColor: 'transparent' },
   layerOn: { borderColor: colors.accent },

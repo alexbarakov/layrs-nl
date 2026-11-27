@@ -75,3 +75,17 @@ export function buildingMedia(id: string, ll: [number, number] | undefined, m: n
 }
 
 export const googleMapsUrl = (ll: [number, number]) => `https://www.google.com/maps/search/?api=1&query=${ll[1].toFixed(6)},${ll[0].toFixed(6)}`;
+
+/** A question about the building for a chat assistant: what we know plus the exact location. */
+export function askPrompt(b: { id: string; y: number; m?: number; ll?: [number, number] }, name?: string, city?: string) {
+  const where = b.ll ? `${b.ll[1].toFixed(6)}, ${b.ll[0].toFixed(6)}` : '';
+  return [
+    `Расскажи про здание${name ? ` «${name}»` : ''}${city ? ` в ${city}` : ''}, Нидерланды.`,
+    where ? `Координаты: ${where} (${googleMapsUrl(b.ll!)}).` : '',
+    b.y ? `По реестру BAG построено около ${b.y} года.` : '',
+    b.m ? `Это рийксмонумент № ${b.m}.` : '',
+    'Что это за здание, его история, архитектура и интересные факты. Если по координатам не уверен, какое именно здание, скажи об этом.',
+  ].filter(Boolean).join(' ');
+}
+export const chatgptUrl = (q: string) => `https://chatgpt.com/?q=${encodeURIComponent(q)}`;
+export const claudeUrl = (q: string) => `https://claude.ai/new?q=${encodeURIComponent(q)}`;
