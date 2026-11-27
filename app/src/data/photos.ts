@@ -21,7 +21,7 @@ async function api(base: string, params: Record<string, string>) {
 const strip = (html?: string) => (html ?? '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
 
 /** Wikidata item of a rijksmonument: its label in the app language, main image, Commons category. */
-async function monument(m: number, lang: string) {
+export async function monument(m: number, lang: string) {
   const s = await api(WIKIDATA, { action: 'query', list: 'search', srsearch: `haswbstatement:P359=${m}`, srlimit: '1' });
   const id = s.query?.search?.[0]?.title;
   if (!id) return null;

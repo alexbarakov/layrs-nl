@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chip } from '@/components/chip';
 import { Icon, IconTile } from '@/components/icon';
 import { layerIcon, layerRu, plBuildings } from '@/data/layers';
+import { useStopName } from '@/data/names';
 import { type CityLenses, lensGroups, loadLenses } from '@/data/places';
 import { removeWalk, saveWalk, useSaved } from '@/data/saved';
 import { flyTo, getApp, setApp, type Stop, useApp, type Walk } from '@/data/store';
@@ -145,7 +146,7 @@ export function WalksScreen() {
             <Pressable key={s.id} accessibilityRole="button" style={({ pressed }) => [styles.stop, pressed && { backgroundColor: colors.chip }]}
               onPress={() => { show(result); setApp({ selected: { id: s.id, y: s.y, h: s.h, m: s.m, q: s.q, ll: s.ll } }); }}>
               <View style={styles.n}><Text style={styles.nText}>{i + 1}</Text></View>
-              <Text style={[type.body, { flex: 1 }]}>{yearLabel(s.y, s.q)}{s.m ? ` · памятник ${s.m}` : ''}</Text>
+              <StopLabel stop={s} />
               <Text style={[type.caption, { fontVariant: ['tabular-nums'] }]}>{meters(legMeters(result, i))}</Text>
             </Pressable>
           ))}
@@ -167,6 +168,16 @@ export function WalksScreen() {
         </View>
       ) : null}
     </ScrollView>
+  );
+}
+
+function StopLabel({ stop }: { stop: Stop }) {
+  const name = useStopName(stop);
+  return (
+    <View style={{ flex: 1 }}>
+      <Text style={type.body} numberOfLines={1}>{name ?? '…'}</Text>
+      <Text style={type.caption}>{stop.y ? yearLabel(stop.y, stop.q) : ''}{stop.m ? `${stop.y ? ' · ' : ''}памятник` : ''}</Text>
+    </View>
   );
 }
 

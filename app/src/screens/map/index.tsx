@@ -14,6 +14,7 @@ import { LayrsMap } from '@/components/layrs-map';
 import { Swatches } from '@/components/swatches';
 import { LENS_COLORS, YEAR_MAX, YEAR_MIN } from '@/data/config';
 import { BASE_LAYERS, layerIcon, layerRu } from '@/data/layers';
+import { useStopName } from '@/data/names';
 import { loadLenses } from '@/data/places';
 import { COLLECT_RADIUS_M, ERA_INK, MAX_ACCURACY_M, loadStamps, useJournal } from '@/data/stamps';
 import { flyTo, getApp, setApp, useApp, zoomBy } from '@/data/store';
@@ -216,6 +217,7 @@ function WalkStrip() {
   const walk = useApp((s) => s.walk);
   const step = useApp((s) => s.walkStep);
   const me = useApp((s) => s.me);
+  const name = useStopName(walk && step !== null ? walk.stops[step] : undefined);
   if (!walk || !walk.stops.length) return null;
   if (step === null) {
     return (
@@ -248,7 +250,7 @@ function WalkStrip() {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={type.caption}>Остановка {step + 1} из {walk.stops.length}</Text>
-          <Text style={type.headline}>{yearLabel(s.y, s.q)}{s.m ? ' · памятник' : ''}</Text>
+          <Text style={type.headline} numberOfLines={1}>{name ?? yearLabel(s.y, s.q)}</Text>
           <Text style={type.subhead}>{d !== null ? `${meters(d)} по прямой` : `${meters(legMeters(walk, step))} от прошлой остановки`}</Text>
         </View>
       </View>
