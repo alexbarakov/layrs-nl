@@ -4,9 +4,10 @@ import { Host, Slider } from '@expo/ui';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { tabBarSpace } from '@/components/app-tabs';
 import { Chip } from '@/components/chip';
 import { Icon, IconTile } from '@/components/icon';
 import { LayrsMap } from '@/components/layrs-map';
@@ -41,8 +42,8 @@ export function MapScreen() {
   const [note, setNote] = useState<string | null>(null);
   const [timeOpen, setTimeOpen] = useState(false);
   const country = zoom < 9;
-  // the iOS tab bar floats over the screen
-  const bottom = Platform.OS === 'ios' ? insets.bottom + 12 : spacing.md;
+  // the bottom menu floats over the map
+  const bottom = tabBarSpace(insets.bottom) + 10;
 
   // city layers follow the municipality under the map centre
   useEffect(() => {

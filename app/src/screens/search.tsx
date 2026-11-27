@@ -65,6 +65,7 @@ export function SearchScreen() {
   const data = [...local, ...addr];
   return (
     <View style={[styles.fill, { paddingTop: insets.top + spacing.md }]}>
+      <Text style={[type.display, styles.title]}>Поиск</Text>
       <TextInput value={q} onChangeText={setQ} placeholder="Адрес, город или здание…" placeholderTextColor={colors.mute}
         style={styles.input} autoCorrect={false} returnKeyType="search" clearButtonMode="while-editing" accessibilityLabel="Поиск" />
       {state === 'error' ? <Text style={[type.subhead, styles.pad]}>Поиск адресов недоступен. Проверьте соединение.</Text> : null}
@@ -87,7 +88,8 @@ export function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1, backgroundColor: colors.card },
+  fill: { flex: 1, backgroundColor: colors.paper },
+  title: { marginHorizontal: spacing.md, marginBottom: spacing.sm },
   pad: { paddingHorizontal: spacing.md, paddingBottom: 120 },
   input: { marginHorizontal: spacing.md, marginBottom: spacing.sm, backgroundColor: colors.chip, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 17, color: colors.ink },
   item: { paddingVertical: 11, gap: 2, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },

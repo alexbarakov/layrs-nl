@@ -67,7 +67,7 @@ export function WalksScreen() {
 
   return (
     <ScrollView style={styles.fill} contentContainerStyle={[styles.wrap, { paddingTop: insets.top + spacing.md }]} keyboardShouldPersistTaps="handled">
-      <Text style={type.title}>Прогулка</Text>
+      <Text style={type.display}>Прогулка</Text>
       <Text style={type.subhead}>По памятникам и старым домам, по улицам. {gm ? `Сейчас карта в ${gm.name}.` : ''}</Text>
 
       <Group label="Откуда">
@@ -138,7 +138,7 @@ function Group({ label, children }: { label: string; children: React.ReactNode }
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1, backgroundColor: colors.card },
+  fill: { flex: 1, backgroundColor: colors.paper },
   wrap: { padding: spacing.md, gap: spacing.md, paddingBottom: 120 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' },
   result: { gap: spacing.sm, paddingTop: spacing.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line },
