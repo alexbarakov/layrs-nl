@@ -1,33 +1,43 @@
-"""Five rubber-stamp designs for LAYRS stamps, rendered as one black-ink PNG each.
+"""Five rubber-stamp impressions for LAYRS stamps, one black-ink PNG each (requirements: docs/stamps/requirements.md).
 
-1 postmark      double ring, name on the top arc, place and year on the bottom arc, two stars
-2 postage       perforated edge like a postage stamp, sketch above, name and year on a bottom band
-3 oval seal     double oval, the name knocked out of a solid ribbon
-4 octagon       double octagon badge, name on two lines under the sketch
-5 cancellation  round postmark with wavy cancellation lines to the right
+1 postmark      double ring; name on the top arc, place and year on the bottom arc, two stars
+2 postage       perforated stamp; place on top, the year as the denomination, name in the bottom band
+3 oval          double oval; name on the top arc, place and year on the bottom arc
+4 octagon       double octagon; name on the top arc, place and year on the bottom arc
+5 cancellation  postmark ring with wavy cancellation lines to the right
 
-The sketch (architectural pen drawing from the photo) is clipped to each frame. Then the whole impression gets an
-ink texture: uneven pressure, grain and missing ink, slightly bled edges, a few flecks, so it reads as pressed by hand.
-Fonts: Oswald (OFL) and Special Elite (Apache 2.0), downloaded to data/raw/fonts by p15_stamps.py.
+The centre carries only the drawing of the building (stamp_landmarks.py by hand for the best-known buildings,
+stamp_types.py by type for the rest): no letters, no monograms. The lettering runs along the edge.
+Then the impression gets an ink texture: uneven pressure, paper grain, starved patches, slightly bled edges,
+so it reads as pressed by hand.
+
+Fonts: Oswald (OFL), downloaded to data/raw/fonts by p15_stamps.py.
 """
 import hashlib, io, math
 
 import numpy as np
-from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
-S = 512          # working size
-OUT = 512        # published size
+from stamp_draw import rasterize
+
+S = 1024         # working size
+OUT = 600        # published size: 180 pt on a 3x screen
 FONTS = "data/raw/fonts"
 STYLES = 5
+STYLE_NAMES = ["postmark", "postage", "oval", "octagon", "cancellation"]
+K = S / 512      # the layouts below are written for 512
+LINE = 2.1 * K / 2   # px per weight unit at S (bold = 2.6 units)
 
 
 def style_of(qid: str) -> int:
     return int(hashlib.md5(qid.encode()).hexdigest()[:8], 16) % STYLES
 
 
-def _font(name, size, bold=True):
-    f = ImageFont.truetype(f"{FONTS}/{name}", size)
-    if name.startswith("Oswald"):
+def _font(size, bold=True):
+    f = ImageFont.truetype(f"{FONTS}/Oswald.ttf", int(size))
+    try:
+        f.set_variation_by_name("SemiBold" if bold else "Regular")
+    except Exception:
         try:
             f.set_variation_by_name("Bold" if bold else "Regular")
         except Exception:
@@ -35,160 +45,101 @@ def _font(name, size, bold=True):
     return f
 
 
-# ---------- sketch ----------
-def _blur(a, r):
-    return np.asarray(Image.fromarray(a).filter(ImageFilter.GaussianBlur(r)), dtype=np.float32) / 255.0
-
-
-def sketch(img_bytes) -> np.ndarray:
-    """Architectural pen sketch, ink in [0, 1], S x S.
-
-    Clean the photo first (edge-preserving medians), draw bold XDoG contours, drop lines where they pile up
-    (foliage, gravel, brick texture) so the building's outline stays, hatch the shadows and fill the deepest ones solid,
-    like a linocut. Works best from a 960 px photo."""
-    im = Image.open(io.BytesIO(img_bytes)).convert("L")
-    w, h = im.size; s = min(w, h)
-    im = im.crop(((w - s) // 2, (h - s) // 2, (w + s) // 2, (h + s) // 2)).resize((2 * S, 2 * S), Image.LANCZOS)
-    im = ImageOps.autocontrast(im, cutoff=1.5)
-    for _ in range(2):
-        im = im.filter(ImageFilter.MedianFilter(7))                      # flatten texture, keep edges
-    a8 = np.asarray(im)
-    g1, g2 = _blur(a8, 2.0), _blur(a8, 2.0 * 1.6)
-    d = g1 - 0.985 * g2
-    lines = 1.0 - np.where(d >= -0.006, 1.0, 1.0 + np.tanh(45.0 * (d + 0.006)))
-    lines = np.clip(lines * 1.6, 0, 1)
-    # where lines pile up (trees, gravel), keep only the strongest
-    density = _blur((lines * 255).astype(np.uint8), 9)
-    lines = np.where(density > 0.32, np.where(lines > 0.85, lines, 0.0), lines)
-    lum = _blur(a8, 4.0)
-    n = 2 * S
-    yy, xx = np.mgrid[0:n, 0:n]
-    h1 = ((xx + yy) % 14 < 2.2).astype(np.float32)
-    h2 = ((xx - yy) % 14 < 2.2).astype(np.float32)
-    t1, t2, t3 = np.percentile(lum, 22), np.percentile(lum, 9), np.percentile(lum, 3)
-    shade = np.where(lum < t1, h1, 0) + np.where(lum < t2, h2, 0)
-    solid = (lum < t3).astype(np.float32)
-    ink = np.clip(np.maximum.reduce([lines, shade * 0.85, solid]), 0, 1)
-    small = Image.fromarray((ink * 255).astype(np.uint8)).resize((S, S), Image.LANCZOS)
-    small = small.filter(ImageFilter.MaxFilter(3))                       # rubber stamps print bold
-    out = np.asarray(small, dtype=np.float32) / 255
-    return np.clip((out - 0.15) / 0.6, 0, 1)                             # crisp: push greys to ink or paper
-
-
-def lineart(img_bytes):
-    """Clean thin contour drawing from a photo, centred on the building, and a quality score.
-
-    GrabCut separates the building from a centred box, Canny on a twice bilateral-filtered image gives the contours,
-    short fragments are dropped. Score: share of the drawing made of long near-vertical or near-horizontal segments
-    (architecture), penalised when the drawing is nearly empty, overfull or fragmented. Returns (ink S x S in [0, 1], score)."""
-    import cv2
-    buf = np.frombuffer(img_bytes, np.uint8)
-    img = cv2.imdecode(buf, cv2.IMREAD_COLOR)
-    if img is None:
-        return None, 0.0
-    h, w = img.shape[:2]
-    k = 1000 / max(h, w)
-    img = cv2.resize(img, (int(w * k), int(h * k)), interpolation=cv2.INTER_CUBIC)
-    h, w = img.shape[:2]
-    mask = np.zeros((h, w), np.uint8)
-    bg, fg = np.zeros((1, 65), np.float64), np.zeros((1, 65), np.float64)
-    try:
-        cv2.grabCut(img, mask, (int(w * 0.08), int(h * 0.05), int(w * 0.84), int(h * 0.9)), bg, fg, 4, cv2.GC_INIT_WITH_RECT)
-    except cv2.error:
-        return None, 0.0
-    obj = np.where((mask == 1) | (mask == 3), 255, 0).astype(np.uint8)
-    obj = cv2.morphologyEx(obj, cv2.MORPH_CLOSE, np.ones((15, 15), np.uint8))
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    smooth = cv2.bilateralFilter(cv2.bilateralFilter(gray, 9, 60, 9), 9, 60, 9)
-    v = float(np.median(smooth))
-    edges = cv2.Canny(smooth, int(max(0, 0.66 * v)), int(min(255, 1.33 * v)), L2gradient=True)
-    edges = cv2.bitwise_and(edges, cv2.dilate(obj, np.ones((9, 9), np.uint8)))
-    n, lab, st, _ = cv2.connectedComponentsWithStats((edges > 0).astype(np.uint8), 8)
-    keep = np.zeros_like(edges)
-    long_ = 0
-    for i in range(1, n):
-        if max(st[i, 2], st[i, 3]) >= 28:
-            keep[lab == i] = 255; long_ += 1
-    ys, xs = np.nonzero(keep)
-    if len(xs) < 300:
-        return None, 0.0
-    x0, x1 = np.percentile(xs, [0.5, 99.5]).astype(int); y0, y1 = np.percentile(ys, [0.5, 99.5]).astype(int)
-    crop = keep[y0:y1 + 1, x0:x1 + 1]
-    # architecture score: long straight segments near vertical or horizontal, as a share of all ink
-    lsd = cv2.createLineSegmentDetector(cv2.LSD_REFINE_STD)
-    segs = lsd.detect(crop)[0]
-    straight = 0.0
-    if segs is not None:
-        for a0, b0, a1, b1 in segs.reshape(-1, 4):
-            L = math.hypot(a1 - a0, b1 - b0)
-            ang = abs(math.degrees(math.atan2(b1 - b0, a1 - a0))) % 180
-            if L >= 25 and (min(ang, 180 - ang) < 12 or abs(ang - 90) < 12):
-                straight += L
-    ink_px = float((crop > 0).sum())
-    straight_share = min(1.0, straight / max(1.0, ink_px))
-    hh, ww = crop.shape
-    sc = (S * 0.8) / max(hh, ww)
-    small = cv2.resize(crop, (max(1, int(ww * sc)), max(1, int(hh * sc))), interpolation=cv2.INTER_AREA)
-    canvas = np.zeros((S, S), np.uint8)
-    yy, xx = (S - small.shape[0]) // 2, (S - small.shape[1]) // 2
-    canvas[yy:yy + small.shape[0], xx:xx + small.shape[1]] = small
-    canvas = cv2.threshold(canvas, 40, 255, cv2.THRESH_BINARY)[1]
-    canvas = cv2.dilate(canvas, np.ones((2, 2), np.uint8))
-    cov = float((canvas > 0).mean())
-    frag = long_ / max(1.0, ink_px / 400.0)                    # pieces per 400 px of line: high means noisy
-    score = straight_share
-    if cov < 0.015 or cov > 0.16:
-        score *= 0.3
-    score /= (1.0 + max(0.0, frag - 1.2))
-    return canvas.astype(np.float32) / 255.0, float(score)
-
-
-LINEART_MIN = 0.30   # set from a reviewed sample of 60; below it the stamp gets a monogram
-
-
-def monogram(name: str, year: int) -> np.ndarray:
-    """No photo: big initials and the year, as a stamp would carry them."""
-    words = [w for w in name.replace("-", " ").split() if len(w) > 2 and w.lower() not in ("de", "het", "van", "the", "of", "en")]
-    ini = "".join(w[0] for w in words[:2]).upper() or name[:1].upper()
-    c = Image.new("L", (S, S), 0); d = ImageDraw.Draw(c)
-    f = _font("Oswald.ttf", 210)
-    d.text((S / 2, S / 2), ini, font=f, fill=255, anchor="mm")   # the frame carries the year
-    return np.asarray(c, dtype=np.float32) / 255
-
-
 # ---------- lettering ----------
-def _fit(text, fontname, max_w, start, minimum=18, bold=True):
+CUTS = (" met ", " waarvan ", " waarvoor ", " bestaande ", " onder ", " behorend ", " samen ", " voorzien ", " gedekt ",
+        " gedateerd ", " tussen ", " van het ", " in de ", " in het ", " en inventaris")
+
+
+STOP = {"van", "de", "het", "der", "en", "voor", "met", "in", "op", "aan", "bij", "of", "te"}
+
+
+def short_name(name: str, limit: int = 34) -> str:
+    """Wikidata labels of minor monuments are often descriptions ("Pand met eenvoudige lijstgevel, gedateerd ...").
+    Keep the naming part for the stamp's edge: before ;.: then before a comma, then before a describing clause,
+    then whole words up to the limit. A single long word stays whole (the lettering shrinks to fit)."""
+    n = name.strip()
+    if len(n) > 2 and n[0] in "'\"‘“" and n[-1] in "'\"’”":       # quoted label, not 't or 's
+        n = n[1:-1]
+    if len(n) <= limit:
+        return n
+    for sep in (";", ". ", ": "):
+        head = n.split(sep)[0]
+        if len(head) >= 4 and not (sep == ". " and len(head.split()[-1]) <= 2):   # not "C. en A." or "R.K."
+            n = head
+    if len(n) > limit and "," in n and len(n.split(",")[0]) >= 8:
+        n = n.split(",")[0]
+    if len(n) > limit:
+        low = n.lower()
+        cut = min([low.find(c) for c in CUTS if low.find(c) >= 8] or [len(n)])
+        n = n[:cut]
+    words = n.split()
+    if len(n) > limit and len(words) > 1:
+        out = []
+        for w in words:
+            if len(" ".join(out + [w])) > limit:
+                break
+            out.append(w)
+        words = out or words[:1]
+    while len(words) > 1 and words[-1].lower() in STOP:
+        words = words[:-1]
+    n = " ".join(words).rstrip(" ,")
+    if n.count("(") > n.count(")"):                       # a cut inside brackets: drop the open bracket
+        n = n[:n.rindex("(")].rstrip(" ,")
+    return n
+
+
+def _fit(text, max_w, start, minimum=16, bold=True, tracking=0.0):
     size = start
     while size > minimum:
-        f = _font(fontname, size, bold)
-        if f.getlength(text) <= max_w:
+        f = _font(size * K, bold)
+        if _width(text, f, tracking) <= max_w:
             return f, text
-        size -= 2
-    f = _font(fontname, minimum, bold)
-    while text and f.getlength(text + "…") > max_w:
+        size -= 1
+    f = _font(minimum * K, bold)
+    while text and _width(text + "…", f, tracking) > max_w:
         text = text[:-1]
     return f, text.rstrip() + "…"
 
 
-def _arc_text(canvas: Image.Image, text, cx, cy, r, center_deg, font, bottom=False, value=255):
-    """Letters along a circle; top arcs read clockwise, bottom arcs counter-clockwise (upright)."""
+def _width(text, font, tracking):
+    return sum(font.getlength(ch) for ch in text) + tracking * font.size * max(0, len(text) - 1)
+
+
+def _ellipse_text(canvas, text, cx, cy, rx, ry, center_deg, font, bottom=False, tracking=0.08):
+    """Letters along an ellipse (a circle when rx == ry), upright: top arcs read clockwise, bottom ones counter-clockwise."""
+    # arc length table along the ellipse
+    n = 2048
+    th = np.linspace(-math.pi, math.pi, n + 1)
+    xs, ys = rx * np.cos(th), ry * np.sin(th)
+    seg = np.hypot(np.diff(xs), np.diff(ys))
+    L = np.concatenate([[0], np.cumsum(seg)])
+
+    def at(theta):
+        return float(np.interp(theta, th, L))
+
+    def theta_at(l):
+        return float(np.interp(l % L[-1], L, th))
+
     widths = [font.getlength(ch) for ch in text]
-    total = sum(widths) / r                                    # radians
-    a = math.radians(center_deg) + (total / 2 if bottom else -total / 2)
+    gap = tracking * font.size
+    total = sum(widths) + gap * (len(text) - 1)
+    c = at(math.radians(center_deg))
+    pos = c + total / 2 if bottom else c - total / 2
     for ch, w in zip(text, widths):
-        step = w / r
-        mid = a + (-step / 2 if bottom else step / 2)
-        x, y = cx + r * math.cos(mid), cy + r * math.sin(mid)
-        tile = Image.new("L", (int(w) + 24, font.size + 24), 0)
-        ImageDraw.Draw(tile).text((tile.width / 2, tile.height / 2), ch, font=font, fill=value, anchor="mm")
-        rot = -(math.degrees(mid) - 90) if bottom else -(math.degrees(mid) + 90)
+        mid_l = pos - w / 2 if bottom else pos + w / 2
+        t = theta_at(mid_l)
+        x, y = cx + rx * math.cos(t), cy + ry * math.sin(t)
+        # tangent direction
+        tx, ty = -rx * math.sin(t), ry * math.cos(t)
+        ang = math.degrees(math.atan2(ty, tx))
+        tile = Image.new("L", (int(w) + int(font.size), int(font.size * 1.6)), 0)
+        cap = font.getbbox("H", anchor="ls")[1]            # negative: cap height above the baseline
+        ImageDraw.Draw(tile).text((tile.width / 2, tile.height / 2 - cap / 2), ch, font=font, fill=255, anchor="ms")
+        rot = -ang if not bottom else -(ang + 180)
         tile = tile.rotate(rot, resample=Image.BICUBIC, expand=True)
         box = (int(x - tile.width / 2), int(y - tile.height / 2))
-        if value:
-            canvas.paste(ImageChops.lighter(canvas.crop((*box, box[0] + tile.width, box[1] + tile.height)), tile), box)
-        else:
-            canvas.paste(0, box, tile)
-        a += -step if bottom else step
+        canvas.paste(ImageChops.lighter(canvas.crop((*box, box[0] + tile.width, box[1] + tile.height)), tile), box)
+        pos += -(w + gap) if bottom else (w + gap)
 
 
 def _star(d, cx, cy, r, value=255):
@@ -197,142 +148,293 @@ def _star(d, cx, cy, r, value=255):
     d.polygon(pts, fill=value)
 
 
-def _clip(art: np.ndarray, mask: Image.Image) -> Image.Image:
-    return Image.fromarray((art * np.asarray(mask, dtype=np.float32)).astype(np.uint8))
-
-
 def _octagon(cx, cy, r):
     return [(cx + r * math.cos(math.radians(22.5 + 45 * i)), cy + r * math.sin(math.radians(22.5 + 45 * i))) for i in range(8)]
 
 
+def _ring(d, cx, cy, rx, ry, width):
+    d.ellipse((cx - rx, cy - ry, cx + rx, cy + ry), outline=255, width=max(1, int(width)))
+
+
+# ---------- placing the drawing ----------
+def _place(canvas, pen, box, clip=None, weight=1.0):
+    """Rasterize the drawing into box (x0, y0, x1, y1), standing on its bottom edge, clipped to a mask."""
+    x0, y0, x1, y1 = [int(v) for v in box]
+    W, H = x1 - x0, y1 - y0
+    ink = rasterize(pen.svg(W, H, weight_scale=LINE * weight * 360 / W), W, H)   # same stroke in every frame
+    layer = Image.new("L", (S, S), 0)
+    layer.paste(Image.fromarray((ink * 255).astype(np.uint8)), (x0, y0))
+    if clip is not None:
+        layer = ImageChops.multiply(layer, clip)
+    return ImageChops.lighter(canvas, layer)
+
+
+def _mask(shape):
+    m = Image.new("L", (S, S), 0)
+    shape(ImageDraw.Draw(m))
+    return m
+
+
 # ---------- the five designs ----------
-def _postmark(art, name, place, year):
-    c = Image.new("L", (S, S), 0); d = ImageDraw.Draw(c)
+# Each design draws the frame and the lettering on separate layers, so compose() can check that no letter comes
+# closer than MARGIN to a line (requirements, section 2) and shrink the lettering until it does not.
+# Returns frame, text, forbid (the lines text must keep clear of), knock (text printed as paper, or None),
+# clip (where the drawing may go) and box (where the drawing stands).
+MARGIN = int(5 * K / 2 * 1.0) + 2          # ~3 px at 600 px
+
+
+def _hcentered(d, text, x, y, font, fill=255):
+    """Text centred on (x, y) by its cap height, so upper-case lettering sits in the middle of a band."""
+    cap = font.getbbox("H", anchor="ls")[1]
+    d.text((x, y - cap / 2), text, font=font, fill=fill, anchor="ms")
+
+
+def _split2(text):
+    """Two balanced lines, broken at a space or after a hyphen; None for one word."""
+    cuts = [i for i, ch in enumerate(text) if ch == " "] + [i + 1 for i, ch in enumerate(text) if ch == "-"]
+    if not cuts:
+        return None
+    i = min(cuts, key=lambda i: abs(len(text[:i]) - len(text[i:])))
+    return text[:i].strip(), text[i:].strip()
+
+
+def _fit_lines(text, widths, start, minimum=12, bold=True):
+    """Largest common size (in 512-grid points) at which each line fits its width; 0 when none does."""
+    size = start
+    while size >= minimum:
+        f = _font(size * K, bold)
+        if all(f.getlength(t) <= w for t, w in zip(text, widths)):
+            return size
+        size -= 1
+    return 0
+
+
+def _band_text(dt, text, cx, cy, width_of, start, band_h, bold=True, fill=255):
+    """One line in a straight band, or two when that prints the name clearly larger.
+    width_of(dy, cap) -> usable width for a line centred dy below the band centre."""
+    f1 = _font(start * K, bold)
+    cap = lambda size: -_font(size * K, bold).getbbox("H", anchor="ls")[1]
+    one = _fit_lines([text], [width_of(0, cap(start))], start, bold=bold)
+    halves = _split2(text)
+    two = 0
+    if halves:
+        for size in range(int(start * 0.8), 11, -1):
+            gap = cap(size) * 1.45
+            if 2 * cap(size) + gap * 0.45 > band_h:
+                continue
+            if _fit_lines(list(halves), [width_of(-gap / 2, cap(size)), width_of(gap / 2, cap(size))], size, size, bold):
+                two = size; break
+    if halves and two >= max(one * 1.2, 14):
+        f = _font(two * K, bold); gap = cap(two) * 1.45
+        _hcentered(dt, halves[0], cx, cy - gap / 2, f, fill); _hcentered(dt, halves[1], cx, cy + gap / 2, f, fill)
+        return
+    if one:
+        _hcentered(dt, text, cx, cy, _font(one * K, bold), fill); return
+    f, t = _fit(text, width_of(0, cap(12)), 12, minimum=12, bold=bold)
+    _hcentered(dt, t, cx, cy, f, fill)
+
+
+def _layers():
+    return Image.new("L", (S, S), 0), Image.new("L", (S, S), 0)
+
+
+def _postmark(name, place, year, fs):
+    c, t = _layers(); d = ImageDraw.Draw(c)
     cx = cy = S / 2
-    d.ellipse((cx - 240, cy - 240, cx + 240, cy + 240), outline=255, width=10)
-    d.ellipse((cx - 192, cy - 192, cx + 192, cy + 192), outline=255, width=4)
-    m = Image.new("L", (S, S), 0); ImageDraw.Draw(m).ellipse((cx - 182, cy - 182, cx + 182, cy + 182), fill=1)
-    c = ImageChops.lighter(c, _clip(art * 255, m))
-    f, t = _fit(name.upper(), "Oswald.ttf", math.radians(140) * 216, 38)
-    _arc_text(c, t, cx, cy, 216, -90, f)
-    f2, t2 = _fit(f"{place.upper()} · {year}", "Oswald.ttf", math.radians(110) * 216, 32, bold=False)
-    _arc_text(c, t2, cx, cy, 216, 90, f2, bottom=True)
-    d = ImageDraw.Draw(c); _star(d, cx - 216, cy, 11); _star(d, cx + 216, cy, 11)
-    return c
+    R, r = 244 * K, 190 * K
+    _ring(d, cx, cy, R, R, 11 * K)
+    _ring(d, cx, cy, r, r, 4 * K)
+    tr = (R - 11 * K + r) / 2
+    f, tx = _fit(name.upper(), math.radians(150) * tr, 34 * fs, minimum=12, tracking=0.08)
+    _ellipse_text(t, tx, cx, cy, tr, tr, -90, f)
+    f2, t2 = _fit(f"{place.upper()} · {year}", math.radians(120) * tr, 28 * fs, minimum=12, bold=False, tracking=0.1)
+    _ellipse_text(t, t2, cx, cy, tr, tr, 90, f2, bottom=True)
+    _star(d, cx - tr, cy, 10 * K); _star(d, cx + tr, cy, 10 * K)
+    clip = _mask(lambda m: m.ellipse((cx - r + 8 * K, cy - r + 8 * K, cx + r - 8 * K, cy + r - 8 * K), fill=255))
+    return c, t, c, None, clip, (cx - r * 0.84, cy - r * 0.84, cx + r * 0.84, cy + r * 0.6)
 
 
-def _postage(art, name, place, year):
-    c = Image.new("L", (S, S), 0); d = ImageDraw.Draw(c)
-    x0, y0, x1, y1 = 28, 28, S - 28, S - 28
+def _postage(name, place, year, fs):
+    c, t = _layers(); d = ImageDraw.Draw(c)
+    x0, y0, x1, y1 = 62 * K, 22 * K, S - 62 * K, S - 22 * K
     d.rectangle((x0, y0, x1, y1), fill=255)
-    d.rectangle((x0 + 16, y0 + 16, x1 - 16, y1 - 16), fill=0)
-    for t in np.arange(x0, x1 + 1, 26):                     # perforation
-        for (px, py) in ((t, y0), (t, y1)):
-            d.ellipse((px - 8, py - 8, px + 8, py + 8), fill=0)
-    for t in np.arange(y0, y1 + 1, 26):
-        for (px, py) in ((x0, t), (x1, t)):
-            d.ellipse((px - 8, py - 8, px + 8, py + 8), fill=0)
-    d.rectangle((x0 + 34, y0 + 34, x1 - 34, y1 - 34), outline=255, width=3)
-    m = Image.new("L", (S, S), 0); ImageDraw.Draw(m).rectangle((x0 + 42, y0 + 42, x1 - 42, 372), fill=1)
-    c = ImageChops.lighter(c, _clip(art * 255, m))
-    d = ImageDraw.Draw(c)
-    d.line((x0 + 42, 382, x1 - 42, 382), fill=255, width=3)
-    f, t = _fit(name, "SpecialElite.ttf", x1 - x0 - 100, 34)
-    d.text((S / 2, 404), t, font=f, fill=255, anchor="mm")
-    d.text((x1 - 48, 432), str(year), font=_font("Oswald.ttf", 26), fill=255, anchor="rm")
-    d.text((x0 + 48, 432), place.upper()[:18], font=_font("Oswald.ttf", 22, bold=False), fill=255, anchor="lm")
-    return c
+    d.rectangle((x0 + 15 * K, y0 + 15 * K, x1 - 15 * K, y1 - 15 * K), fill=0)
+    step = 24 * K
+    for v in np.arange(x0, x1 + 1, step):                 # perforation
+        for py in (y0, y1):
+            d.ellipse((v - 7 * K, py - 7 * K, v + 7 * K, py + 7 * K), fill=0)
+    for v in np.arange(y0, y1 + 1, step):
+        for px in (x0, x1):
+            d.ellipse((px - 7 * K, v - 7 * K, px + 7 * K, v + 7 * K), fill=0)
+    ix0, iy0, ix1, iy1 = x0 + 32 * K, y0 + 32 * K, x1 - 32 * K, y1 - 32 * K
+    d.rectangle((ix0, iy0, ix1, iy1), outline=255, width=int(3 * K))
+    d.line((ix0, iy0 + 52 * K, ix1, iy0 + 52 * K), fill=255, width=int(2 * K))
+    by = iy1 - 66 * K
+    d.rectangle((ix0, by, ix1, iy1), fill=255)
+    # lettering: place top left, the year as the denomination top right, the name knocked out of the band
+    dt = ImageDraw.Draw(t)
+    fy = _font(36 * K * fs)
+    yw = fy.getlength(str(year))
+    fp, tp = _fit(place.upper(), (ix1 - ix0) - yw - 48 * K, 24 * fs, minimum=12, bold=False)
+    _hcentered(dt, tp, ix0 + 12 * K + fp.getlength(tp) / 2, iy0 + 26 * K, fp)
+    _hcentered(dt, str(year), ix1 - 12 * K - yw / 2, iy0 + 26 * K, fy)
+    _band_text(dt, name.upper(), (ix0 + ix1) / 2, (by + iy1) / 2, lambda dy, cap: (ix1 - ix0) - 30 * K, 34 * fs,
+               band_h=(iy1 - by) - 14 * K)
+    forbid = c.copy(); fd = ImageDraw.Draw(forbid)
+    fd.rectangle((ix0, by, ix1, iy1), fill=0)
+    fd.rectangle((ix0, by, ix1, iy1), outline=255, width=int(2 * K))
+    band = _mask(lambda m: m.rectangle((ix0, by, ix1, iy1), fill=255))
+    knock = ImageChops.multiply(t, band)
+    t_print = ImageChops.subtract(t, knock)
+    clip = _mask(lambda m: m.rectangle((ix0 + 4 * K, iy0 + 56 * K, ix1 - 4 * K, by - 4 * K), fill=255))
+    return c, t_print, forbid, knock, clip, (ix0 + 16 * K, iy0 + 64 * K, ix1 - 16 * K, by - 6 * K), t
 
 
-def _oval(art, name, place, year):
-    c = Image.new("L", (S, S), 0); d = ImageDraw.Draw(c)
-    d.ellipse((22, 62, S - 22, S - 62), outline=255, width=10)
-    d.ellipse((44, 84, S - 44, S - 84), outline=255, width=3)
-    m = Image.new("L", (S, S), 0); ImageDraw.Draw(m).ellipse((52, 92, S - 52, S - 92), fill=1)
-    c = ImageChops.lighter(c, _clip(art * 255, m))
-    d = ImageDraw.Draw(c)
-    d.rectangle((6, 300, S - 6, 362), fill=255)                # ribbon
-    d.polygon([(6, 300), (-20, 331), (6, 362)], fill=255); d.polygon([(S - 6, 300), (S + 20, 331), (S - 6, 362)], fill=255)
-    f, t = _fit(name.upper(), "Oswald.ttf", S - 60, 40)
-    d.text((S / 2, 331), t, font=f, fill=0, anchor="mm")       # knocked out of the ribbon
-    d.text((S / 2, 120), f"· {year} ·", font=_font("Oswald.ttf", 30), fill=255, anchor="mm")
-    d.text((S / 2, 392), place.upper()[:22], font=_font("Oswald.ttf", 24, bold=False), fill=255, anchor="mm")
-    return c
+def _oval(name, place, year, fs):
+    c, t = _layers(); d = ImageDraw.Draw(c)
+    cx, cy = S / 2, S / 2
+    RX, RY = 248 * K, 200 * K
+    rx, ry = 194 * K, 148 * K
+    _ring(d, cx, cy, RX, RY, 10 * K)
+    _ring(d, cx, cy, rx, ry, 3.5 * K)
+    tx, ty = (RX - 10 * K + rx) / 2, (RY - 10 * K + ry) / 2
+    f, tn = _fit(name.upper(), 1.0 * (tx + ty), 32 * fs, minimum=12, tracking=0.08)
+    _ellipse_text(t, tn, cx, cy, tx, ty, -90, f)
+    f2, t2 = _fit(f"{place.upper()} · {year}", 0.85 * (tx + ty), 26 * fs, minimum=12, bold=False, tracking=0.1)
+    _ellipse_text(t, t2, cx, cy, tx, ty, 90, f2, bottom=True)
+    _star(d, cx - tx, cy, 9 * K); _star(d, cx + tx, cy, 9 * K)
+    clip = _mask(lambda m: m.ellipse((cx - rx + 7 * K, cy - ry + 7 * K, cx + rx - 7 * K, cy + ry - 7 * K), fill=255))
+    return c, t, c, None, clip, (cx - rx * 0.8, cy - ry * 0.86, cx + rx * 0.8, cy + ry * 0.6)
 
 
-def _octagon_badge(art, name, place, year):
-    c = Image.new("L", (S, S), 0); d = ImageDraw.Draw(c)
+def _octagon_badge(name, place, year, fs):
+    """Straight lettering on the flat top and bottom faces: an octagon has no arc to follow."""
+    c, t = _layers(); d = ImageDraw.Draw(c)
     cx = cy = S / 2
-    d.polygon(_octagon(cx, cy, 246), outline=255, width=10)
-    d.polygon(_octagon(cx, cy, 216), outline=255, width=3)
-    m = Image.new("L", (S, S), 0); md = ImageDraw.Draw(m)
-    md.polygon(_octagon(cx, cy, 206), fill=1); md.rectangle((0, 330, S, S), fill=0)
-    c = ImageChops.lighter(c, _clip(art * 255, m))
-    d = ImageDraw.Draw(c)
-    d.line((90, 336, S - 90, 336), fill=255, width=3)
-    words, lines = name.upper().split(), ["", ""]
-    for w in words:
-        k = 0 if _font("Oswald.ttf", 34).getlength((lines[0] + " " + w).strip()) <= 300 or not lines[0] else 1
-        lines[k] = (lines[k] + " " + w).strip()
-    for i, ln in enumerate([l for l in lines if l]):
-        f, t = _fit(ln, "Oswald.ttf", 320, 34)
-        d.text((cx, 366 + i * 38), t, font=f, fill=255, anchor="mm")
-    d.text((cx, 88), str(year), font=_font("Oswald.ttf", 26), fill=255, anchor="mm")
-    return c
+    R, r = 250 * K, 172 * K
+    W = 11 * K
+    d.polygon(_octagon(cx, cy, R), outline=255, width=int(W))
+    d.polygon(_octagon(cx, cy, r), outline=255, width=int(3.5 * K))
+    t8 = math.tan(math.radians(22.5))
+    a_out = R * math.cos(math.radians(22.5)) - W            # inner face of the outer frame
+    a_in = r * math.cos(math.radians(22.5))                 # outer face of the inner frame
+    mid = (a_out + a_in) / 2
+    dt = ImageDraw.Draw(t)
+
+    def width_at(dy, cap, top=True):
+        h = mid + (-dy if top else dy) + cap / 2            # the far edge of the letters, where the band is narrowest
+        return 2 * (a_out * t8 + (a_out - h)) - 2 * 12 * K
+
+    band = a_out - a_in - 10 * K
+    _band_text(dt, name.upper(), cx, cy - mid, lambda dy, cap: width_at(dy, cap, True), 32 * fs, band)
+    _band_text(dt, f"{place.upper()} · {year}", cx, cy + mid, lambda dy, cap: width_at(dy, cap, False), 26 * fs, band,
+               bold=False)
+    for sx in (-1, 1):
+        _star(d, cx + sx * mid, cy, 9 * K)
+    clip = _mask(lambda m: m.polygon(_octagon(cx, cy, r - 8 * K), fill=255))
+    return c, t, c, None, clip, (cx - a_in * 0.88, cy - a_in * 0.88, cx + a_in * 0.88, cy + a_in * 0.62)
 
 
-def _cancel(art, name, place, year):
-    c = Image.new("L", (S, S), 0); d = ImageDraw.Draw(c)
-    cx, cy = 210, S / 2
-    d.ellipse((cx - 186, cy - 186, cx + 186, cy + 186), outline=255, width=8)
-    d.ellipse((cx - 146, cy - 146, cx + 146, cy + 146), outline=255, width=3)
-    m = Image.new("L", (S, S), 0); ImageDraw.Draw(m).ellipse((cx - 138, cy - 138, cx + 138, cy + 138), fill=1)
-    c = ImageChops.lighter(c, _clip(art * 255, m))
-    f, t = _fit(name.upper(), "Oswald.ttf", math.radians(150) * 166, 32)
-    _arc_text(c, t, cx, cy, 166, -90, f)
-    f2, t2 = _fit(str(year), "Oswald.ttf", 200, 30)
-    _arc_text(c, t2, cx, cy, 166, 90, f2, bottom=True)
-    d = ImageDraw.Draw(c)
-    for k in range(6):                                          # wavy cancellation lines
-        y = cy - 125 + k * 50
-        pts = [(x, y + 9 * math.sin((x - 380) / 18.0)) for x in range(378, S - 4, 3)]
-        d.line(pts, fill=255, width=6)
-    return c
+def _cancel(name, place, year, fs):
+    c, t = _layers(); d = ImageDraw.Draw(c)
+    cx, cy = 214 * K, S / 2
+    R, r = 196 * K, 150 * K
+    _ring(d, cx, cy, R, R, 9 * K)
+    _ring(d, cx, cy, r, r, 3.5 * K)
+    tr = (R - 9 * K + r) / 2
+    f, tn = _fit(name.upper(), math.radians(160) * tr, 28 * fs, minimum=12, tracking=0.06)
+    _ellipse_text(t, tn, cx, cy, tr, tr, -90, f)
+    f2, t2 = _fit(f"{place.upper()} · {year}", math.radians(140) * tr, 24 * fs, minimum=12, bold=False, tracking=0.08)
+    _ellipse_text(t, t2, cx, cy, tr, tr, 90, f2, bottom=True)
+    for k in range(6):                                    # wavy cancellation lines
+        y = cy - 125 * K + k * 50 * K
+        pts = [(x, y + 9 * K * math.sin((x - 400 * K) / (18 * K))) for x in np.arange(400 * K, S - 6 * K, 3)]
+        d.line(pts, fill=255, width=int(6 * K))
+    clip = _mask(lambda m: m.ellipse((cx - r + 7 * K, cy - r + 7 * K, cx + r - 7 * K, cy + r - 7 * K), fill=255))
+    return c, t, c, None, clip, (cx - r * 0.84, cy - r * 0.84, cx + r * 0.84, cy + r * 0.6)
 
 
 DESIGNS = [_postmark, _postage, _oval, _octagon_badge, _cancel]
+SCALES = [1.0, 0.92, 0.85, 0.78, 0.72, 0.66, 0.6]
+
+
+def collisions(text: Image.Image, forbid: Image.Image) -> int:
+    """Pixels of lettering (grown by MARGIN) that touch a line of the frame."""
+    grown = text.point(lambda v: 255 if v > 60 else 0).filter(ImageFilter.MaxFilter(2 * MARGIN + 1))
+    lines = forbid.point(lambda v: 255 if v > 60 else 0)
+    return int((np.asarray(ImageChops.multiply(grown, lines)) > 0).sum())
+
+
+def layout(name, place, year, style):
+    """Frame and lettering at the largest size that keeps MARGIN clear of every line. -> (parts, scale, overlap)"""
+    for fs in SCALES:
+        parts = DESIGNS[style](name, place, year, fs)
+        check = parts[6] if len(parts) > 6 else parts[1]   # postage: check the knocked-out name too
+        hit = collisions(check, parts[2])
+        if hit == 0:
+            return parts, fs, 0
+    return parts, fs, hit
 
 
 # ---------- ink ----------
-def _ink_texture(a: np.ndarray, seed: int) -> np.ndarray:
+def _noise(rng, n, size):
+    g = rng.random((n, n)).astype(np.float32)
+    return np.asarray(Image.fromarray((g * 255).astype(np.uint8)).resize((size, size), Image.BICUBIC), dtype=np.float32) / 255
+
+
+def ink_texture(a: np.ndarray, seed: int, strength: float = 1.0) -> np.ndarray:
+    """Black-on-transparent mask -> a hand-pressed impression (alpha in [0, 1])."""
     rng = np.random.default_rng(seed)
-    a = np.asarray(Image.fromarray((a * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(0.8)), dtype=np.float32) / 255
-    low = Image.fromarray((rng.random((12, 12)) * 255).astype(np.uint8)).resize((S, S), Image.BICUBIC)
-    pressure = 0.85 + 0.15 * np.asarray(low, dtype=np.float32) / 255                 # uneven pressure
+    n = a.shape[0]
+    a = np.asarray(Image.fromarray((a * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(0.9 * n / 1024)), dtype=np.float32) / 255
+    # pressure: a tilt across the stamp plus soft blotches
     ang = rng.random() * 2 * math.pi
-    yy, xx = np.mgrid[0:S, 0:S] / S
-    pressure *= 0.82 + 0.18 * (0.5 + 0.5 * np.cos(ang) * (xx - 0.5) * 2 + 0.5 * np.sin(ang) * (yy - 0.5) * 2)
-    grain = np.asarray(Image.fromarray((rng.random((S, S)) * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(0.7)), dtype=np.float32) / 255
-    v = a * pressure - (grain - 0.5) * 0.25
-    v = np.clip((v - 0.18) / 0.30, 0, 1)                                              # soft threshold: ragged edges
-    holes = np.asarray(Image.fromarray((rng.random((S // 4, S // 4)) * 255).astype(np.uint8)).resize((S, S), Image.BICUBIC), dtype=np.float32) / 255
-    v *= np.where(holes > 0.95, 0.5, 1.0)                                            # missing ink
-    flecks = (rng.random((S, S)) > 0.99985).astype(np.float32)
-    flecks = np.asarray(Image.fromarray((flecks * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(3)), dtype=np.float32) / 255
-    return np.clip(np.maximum(v, flecks * 0.8), 0, 1)
+    yy, xx = np.mgrid[0:n, 0:n] / n - 0.5
+    tilt = 0.5 + (np.cos(ang) * xx + np.sin(ang) * yy)
+    pressure = 0.78 + 0.22 * (0.55 * _noise(rng, 7, n) + 0.45 * tilt)
+    # starved ink: mid-frequency patches where little ink transfers
+    starve = _noise(rng, 40, n)
+    grain = np.asarray(Image.fromarray((rng.random((n, n)) * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(0.8 * n / 1024)),
+                       dtype=np.float32) / 255
+    v = a * pressure - (grain - 0.5) * 0.28 * strength - np.clip(starve - 0.72, 0, 1) * 1.1 * strength
+    v = np.clip((v - 0.2) / 0.32, 0, 1)                    # soft threshold: ragged edges
+    # ink pools at the edges of solid shapes a little
+    edge = np.clip(a - np.asarray(Image.fromarray((a * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(3 * n / 1024)),
+                                  dtype=np.float32) / 255, 0, 1)
+    v = np.clip(v * (0.86 + 0.14 * pressure) + edge * 0.25, 0, 1)
+    flecks = (rng.random((n, n)) > 0.999985).astype(np.float32)
+    flecks = np.asarray(Image.fromarray((flecks * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(5)), dtype=np.float32) / 255
+    return np.clip(np.maximum(v, flecks * 0.7), 0, 1)
 
 
-def render(qid: str, name: str, place: str, year: int, photo_bytes: bytes | None, style: int | None = None,
-           min_score: float | None = None):
-    """-> (png bytes, kind) where kind is 'lineart' or 'monogram'."""
-    art, score = lineart(photo_bytes) if photo_bytes else (None, 0.0)
-    kind = "lineart"
-    if art is None or score < (LINEART_MIN if min_score is None else min_score):
-        art, kind = monogram(name, year), "monogram"
+LAST_CHECK = {}
+
+
+def compose(pen, name: str, place: str, year: int, style: int) -> np.ndarray:
+    """The clean impression (before ink), S x S in [0, 1]. LAST_CHECK keeps the lettering scale and any overlap."""
+    parts, fs, hit = layout(name, place, year, style)
+    frame, text, _, knock, clip, box = parts[:6]
+    LAST_CHECK.update(scale=fs, overlap=hit)
+    img = ImageChops.lighter(frame, text)
+    img = _place(img, pen, box, clip)
+    if knock is not None:
+        img = ImageChops.subtract(img, knock)
+    return np.asarray(img, dtype=np.float32) / 255
+
+
+def render(qid: str, name: str, place: str, year: int, pen, style: int | None = None, out: int = OUT, ink=True,
+           color: str = "#161513") -> bytes:
+    """-> PNG bytes: one ink colour (the era's, see p15_stamps.ERA_INK) on transparent, out x out."""
     st = style_of(qid) if style is None else style
-    c = DESIGNS[st](art, name, place, year)
-    a = _ink_texture(np.asarray(c, dtype=np.float32) / 255, int(hashlib.md5(qid.encode()).hexdigest()[8:16], 16))
-    alpha = Image.fromarray((a * 255).astype(np.uint8)).resize((OUT, OUT), Image.LANCZOS)
-    out = Image.new("RGBA", (OUT, OUT), (22, 21, 19, 0)); out.putalpha(alpha)
-    buf = io.BytesIO(); out.save(buf, "PNG", optimize=True)
-    return buf.getvalue(), kind
+    a = compose(pen, short_name(name), place, year, st)
+    if ink:
+        a = ink_texture(a, int(hashlib.md5(qid.encode()).hexdigest()[8:16], 16))
+    alpha = Image.fromarray((a * 255).astype(np.uint8)).resize((out, out), Image.LANCZOS)
+    # one colour, so a palette PNG with 16 ink strengths: a quarter of the size of RGBA, the same to the eye
+    levels = 16
+    idx = np.round(np.asarray(alpha, dtype=np.float32) / 255 * (levels - 1)).astype(np.uint8)
+    im = Image.fromarray(idx, "P")
+    im.putpalette(list(int(color[i:i + 2], 16) for i in (1, 3, 5)) * levels)
+    buf = io.BytesIO()
+    im.save(buf, "PNG", optimize=True, transparency=bytes(round(k * 255 / (levels - 1)) for k in range(levels)))
+    return buf.getvalue()

@@ -8,15 +8,15 @@ Per municipality: N = 5..20 on a log scale of its building count (10k -> 5, 200k
 eras (<1500, 1500-1650, 1650-1800, 1800-1900, 1900-1945, 1945+), most sitelinks first, at least 100 m apart.
 Municipalities with fewer than 3 candidates get none.
 
-Stamp art: a clean contour drawing from the Commons photo (P18), kept only when it scores as architecture
-(stamp_styles.lineart); otherwise a monogram. Rendered into one of five rubber-stamp designs, 512 px PNG. The drawing is a derivative of the
-photo and keeps its licence; author and licence come from the Commons API. Without a photo the app draws a monogram.
+Stamp art (docs/stamps/approach.md): a line elevation of the building, hand-composed for the best-known
+(stamp_landmarks.py), otherwise drawn from its Wikidata type, era and 3D BAG height (stamp_types.py). No letters in the
+centre. Rendered into one of five rubber-stamp frames with an ink texture (stamp_styles.py), 600 px PNG.
+Needs rsvg-convert (librsvg) on the PATH.
 
 writes viewer/stamps/<GM>.json, viewer/stamps/index.json, viewer/stamps/img/<qid>.png
-usage: python pipeline/p15_stamps.py [--no-art]
+usage: python pipeline/p15_stamps.py [--no-art | --restyle]   (--restyle redraws the published selection only)
 """
 import csv, io, json, math, os, re, sys, time, urllib.parse, urllib.request
-from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import geopandas as gpd
@@ -26,13 +26,12 @@ from pyproj import Transformer
 
 UA = "layrs-nl-pipeline/0.1 (https://github.com/alexbarakov/layrs-nl)"
 WDQS = "https://query.wikidata.org/sparql"
-COMMONS = "https://commons.wikimedia.org/w/api.php"
 OUT = "viewer/stamps"
 RAW = "data/raw"
 ERAS = [(0, 1500, "до 1500"), (1500, 1650, "1500–1649"), (1650, 1800, "1650–1799"),
         (1800, 1900, "1800–1899"), (1900, 1945, "1900–1944"), (1945, 3000, "с 1945")]
 MIN_GAP = 100
-# one ink per era, like a stamp pad (same order in app/src/data/stamps.ts)
+# one ink per era, like a stamp pad: the stamp PNGs are printed in it (same order in app/src/data/stamps.ts)
 ERA_INK = ["#4a1410", "#8c1c13", "#a8481f", "#8a6410", "#2f6b4a", "#2c5a91"]
 
 
@@ -157,162 +156,91 @@ def select():
 
 
 # ---------- art ----------
-def commons_meta(files):
-    """file title -> (thumb url, author, licence, licence url, page url)"""
+def fetch_types(qids):
+    """Wikidata P31 labels (en) per item, cached in data/raw/wd_stamp_types.json."""
+    path = f"{RAW}/wd_stamp_types.json"
+    have = json.load(open(path)) if os.path.exists(path) else {}
+    missing = [q for q in qids if q not in have]
+    for i in range(0, len(missing), 400):
+        vals = " ".join("wd:" + q for q in missing[i:i + 400])
+        rows = sparql_csv(f'SELECT ?i ?tl WHERE {{ VALUES ?i {{ {vals} }} OPTIONAL {{ ?i wdt:P31 ?t . '
+                          f'?t rdfs:label ?tl FILTER(LANG(?tl) = "en") }} }}')
+        for r in rows:
+            have.setdefault(r["i"].rsplit("/", 1)[-1], [])
+            if r["tl"]:
+                have[r["i"].rsplit("/", 1)[-1]].append(r["tl"])
+    if missing:
+        json.dump(have, open(path, "w"), ensure_ascii=False)
+    return have
+
+
+def heights(stamps):
+    """Tallest 3D BAG height among each stamp's buildings (m), for the drawing's proportions."""
+    p = pd.read_parquet("out/panden.parquet", columns=["h"])
+    p.index = p.index.str[-16:]
     out = {}
-    for i in range(0, len(files), 50):
-        chunk = files[i:i + 50]
-        q = urllib.parse.urlencode({"action": "query", "format": "json", "prop": "imageinfo", "iiprop": "url|extmetadata",
-                                    "iiurlwidth": 400, "titles": "|".join("File:" + f for f in chunk)})
-        j = json.loads(get(f"{COMMONS}?{q}"))
-        norm = {n["to"]: n["from"] for n in j["query"].get("normalized", [])}
-        for pg in j["query"]["pages"].values():
-            if "imageinfo" not in pg:
-                continue
-            ii = pg["imageinfo"][0]; md = ii.get("extmetadata", {})
-            clean = lambda k: re.sub(r"<[^>]+>", "", md.get(k, {}).get("value", "")).strip()
-            title = norm.get(pg["title"], pg["title"])[5:]
-            out[title] = (ii.get("thumburl"), clean("Artist")[:120], clean("LicenseShortName"), clean("LicenseUrl"), ii.get("descriptionurl"))
-        time.sleep(0.5)
+    for s in stamps:
+        hs = [float(p.h.get(b, 0) or 0) for b in s.get("bags", [])]
+        out[s["id"]] = max(hs) if hs and max(hs) > 0 else None
     return out
-
-
-def drawing(img_bytes):
-    """Photo -> black-and-white architectural sketch on a transparent 256 px square.
-
-    Lines: XDoG (difference of Gaussians with a soft threshold), which reads like a pen drawing of edges.
-    Shade: 45-degree hatching in dark areas, cross-hatching in the darkest, like an elevation rendering.
-    Black ink only; the stamp frame is drawn by the app."""
-    from PIL import Image, ImageFilter, ImageOps
-    im = Image.open(io.BytesIO(img_bytes)).convert("L")
-    w, h = im.size; s = min(w, h)
-    im = im.crop(((w - s) // 2, (h - s) // 2, (w + s) // 2, (h + s) // 2)).resize((512, 512), Image.LANCZOS)
-    im = ImageOps.autocontrast(im.filter(ImageFilter.MedianFilter(5)), cutoff=1)
-    g = lambda r: np.asarray(im.filter(ImageFilter.GaussianBlur(r)), dtype=np.float32) / 255.0
-    g1, g2 = g(1.2), g(1.2 * 1.6)
-    d = g1 - 0.98 * g2                                        # XDoG
-    lines = 1.0 - np.where(d >= -0.004, 1.0, 1.0 + np.tanh(60.0 * (d + 0.004)))
-    lines = np.clip(lines * 1.4, 0, 1)
-    lum = g(3.0)
-    yy, xx = np.mgrid[0:512, 0:512]
-    hatch1 = ((xx + yy) % 9 < 1.4).astype(np.float32)        # 45 degrees
-    hatch2 = ((xx - yy) % 9 < 1.4).astype(np.float32)        # -45 degrees
-    # thresholds relative to the photo, so a dark photo is not hatched all over
-    t1, t2 = np.percentile(lum, 28), np.percentile(lum, 10)
-    shade = np.where(lum < t1, hatch1, 0) + np.where(lum < t2, hatch2, 0)
-    ink = np.clip(np.maximum(lines, shade * 0.6), 0, 1)
-    r = np.hypot(xx - 255.5, yy - 255.5) / 256
-    ink *= np.clip((0.97 - r) / 0.04, 0, 1)                  # crisp round edge
-    a = Image.fromarray((ink * 255).astype(np.uint8), "L").resize((256, 256), Image.LANCZOS)
-    out = Image.new("RGBA", (256, 256), (20, 19, 17, 0)); out.putalpha(a)
-    buf = io.BytesIO(); out.save(buf, "PNG", optimize=True)
-    return buf.getvalue()
-
-
-def photo_path(stamp):
-    for d in ("commons960", "commons"):
-        p = f"{RAW}/{d}/{stamp['id']}.jpg"
-        if os.path.exists(p):
-            return p
-    return None
-
-
-def photo(stamp, thumb_url):
-    """The Commons photo (500 px thumbnail, a pre-rendered size), cached in data/raw/commons/ so restyling
-    never downloads again. A 960 px copy is used when one is cached; on the stamp it looks the same."""
-    p = photo_path(stamp)
-    if p:
-        return open(p, "rb").read()
-    os.makedirs(f"{RAW}/commons", exist_ok=True)
-    p = f"{RAW}/commons/{stamp['id']}.jpg"
-    open(p, "wb").write(get(thumb_url, accept="image/*"))
-    return open(p, "rb").read()
 
 
 def _render_one(args):
     import stamp_styles as SS
-    sid, name, place, year, photo_path, out = args
-    ph = open(photo_path, "rb").read() if photo_path and os.path.exists(photo_path) else None
-    png, kind = SS.render(sid, name, place, year, ph)
-    open(out, "wb").write(png)
-    return sid, kind
+    from stamp_draw import Pen
+    from stamp_landmarks import DRAWINGS
+    from stamp_types import draw
+    sid, name, place, year, kind, h, era, out = args
+    if sid in DRAWINGS:
+        pen = Pen(); DRAWINGS[sid](pen); art = "hand"
+    else:
+        pen = draw(sid, kind, year, h); art = "type"
+    open(out, "wb").write(SS.render(sid, name, place, year, pen, color=ERA_INK[era]))
+    return sid, art, SS.LAST_CHECK.get("scale"), SS.LAST_CHECK.get("overlap")
 
 
 def make_art(stamps):
-    """Fetch (and cache) the Commons photos, then render every stamp in one of five rubber-stamp designs."""
+    """Draw every stamp: by hand for the best-known buildings, by building type for the rest; one of five frames."""
     from concurrent.futures import ProcessPoolExecutor
+    from collections import Counter
     import stamp_styles as SS
+    from stamp_types import era_kind, kind_of
     os.makedirs(f"{OUT}/img", exist_ok=True)
-    files = sorted({s["file"] for s in stamps if s.get("file")})
-    cache = f"{RAW}/commons_meta.json"
-    meta = {k: tuple(v) for k, v in json.load(open(cache)).items()} if os.path.exists(cache) else {}
-    missing = [f for f in files if f not in meta]
-    if missing:
-        meta.update(commons_meta(missing))
-        json.dump(meta, open(cache, "w"), ensure_ascii=False)
-    log(f"commons metadata: {len(meta)} files known, {len(files)} wanted")
-
-    def fetch(s):
-        m = meta.get(s.get("file") or "")
-        if not m or not m[0]:
-            return s["id"], None
-        try:
-            photo(s, m[0]); return s["id"], m
-        except Exception as e:
-            log("  photo failed", s["id"], str(e)[:80]); return s["id"], None
-    with ThreadPoolExecutor(6) as ex:
-        got = dict(ex.map(fetch, stamps))
-    log(f"photos: {sum(1 for v in got.values() if v)} of {len(stamps)}")
-
-    jobs = [(s["id"], s["name_nl"], s["place"], s["year"], photo_path(s) if got.get(s["id"]) else None,
-             f"{OUT}/img/{s['id']}.png") for s in stamps]
-    kinds = {}
+    types = fetch_types([s["id"] for s in stamps])
+    hs = heights(stamps)
+    jobs = []
+    for s in stamps:
+        s["kind"] = kind_of(types.get(s["id"], []), s["name_nl"]) or era_kind(s["year"])
+        jobs.append((s["id"], s["name_nl"], s["place"], s["year"], s["kind"], hs.get(s["id"]), s["era"], f"{OUT}/img/{s['id']}.png"))
+    arts = {}
     with ProcessPoolExecutor(8) as ex:
-        for i, (sid, kind) in enumerate(ex.map(_render_one, jobs, chunksize=16)):
-            kinds[sid] = kind
+        checks = {}
+        for i, (sid, art, scale, overlap) in enumerate(ex.map(_render_one, jobs, chunksize=16)):
+            arts[sid] = art
+            checks[sid] = (scale, overlap)
             if i % 500 == 0:
                 log("rendered", i)
     for s in stamps:
-        m = got.get(s["id"])
         s["img"] = f"stamps/img/{s['id']}.png"
         s["style"] = SS.style_of(s["id"])
-        s["art"] = kinds.get(s["id"], "monogram")
-        if m and s["art"] == "lineart":       # the drawing is derived from the photo: credit it
-            s["credit"] = {"author": m[1], "license": m[2], "license_url": m[3], "source": m[4]}
+        s["art"] = arts[s["id"]]
+        s.pop("credit", None)               # hand and type drawings are our own, not derived from one photo
         s.pop("file", None)
+    log("kinds:", dict(Counter(s["kind"] for s in stamps).most_common()))
+    log("styles:", dict(Counter(s["style"] for s in stamps)))
+    # lettering check (docs/stamps/requirements.md, criterion 3): no letter within ~3 px of a frame line
+    bad = [s for s in stamps if checks[s["id"]][1]]
+    log(f"lettering: {sum(1 for s in stamps if checks[s['id']][0] < 1)} shrunk to fit, {len(bad)} still touching a line")
+    with open(f"{OUT}/lettering_check.tsv", "w") as fh:
+        fh.write("id\tstyle\tscale\toverlap_px\tname\n")
+        for s in stamps:
+            sc, ov = checks[s["id"]]
+            if sc < 1 or ov:
+                fh.write(f"{s['id']}\t{s['style']}\t{sc}\t{ov}\t{s['name_nl']}\n")
     return stamps
 
 
-def recolor(stamps):
-    """Give each drawing its era ink (the app also tints it; this keeps the PNGs right everywhere)."""
-    from PIL import Image
-    for s in stamps:
-        path = f"{OUT}/img/{s['id']}.png"
-        if not s.get("img") or not os.path.exists(path):
-            continue
-        im = np.array(Image.open(path).convert("RGBA"))
-        ink_hex = ERA_INK[s["era"]]
-        im[..., :3] = [int(ink_hex[i:i + 2], 16) for i in (1, 3, 5)]
-        Image.fromarray(im, "RGBA").save(path, "PNG", optimize=True)
-
-
-def main():
-    picks = select()
-    tr = Transformer.from_crs(28992, 4326, always_xy=True)
-    stamps, per = [], {}
-    for code, (name, n, chosen) in picks.items():
-        for r in chosen:
-            lon, lat = tr.transform(r.x, r.yy)
-            f = urllib.parse.unquote(r.img.rsplit("/", 1)[-1]) if r.img else ""
-            s = {"id": r.qid, "gm": code, "place": name, "bags": r.bags, "ll": [round(lon, 6), round(lat, 6)],
-                 "name": r.en or r.nl, "name_nl": r.nl or r.en, "year": int(r.year), "era": int(r.era), "sl": int(r.sl),
-                 "wiki": r.nlwiki or r.enwiki or "", "wiki_en": r.enwiki or "", "file": f}
-            stamps.append(s)
-            per.setdefault(code, {"name": name, "quota": n, "stamps": []})["stamps"].append(s)
-    if "--no-art" not in sys.argv:
-        make_art(stamps)
-    else:
-        for s in stamps: s.pop("file", None)
+def write(per):
     os.makedirs(OUT, exist_ok=True)
     index = {}
     for code, v in per.items():
@@ -321,8 +249,39 @@ def main():
         xs = [s["ll"] for s in v["stamps"]]
         index[code] = {"name": v["name"], "n": len(v["stamps"]), "ll": [round(sum(a for a, _ in xs) / len(xs), 5), round(sum(b for _, b in xs) / len(xs), 5)]}
     json.dump(index, open(f"{OUT}/index.json", "w"), ensure_ascii=False, separators=(",", ":"))
-    drawn = sum(1 for s in stamps if s.get("art") == "lineart")
-    log(f"written: {len(per)} municipalities, {len(stamps)} stamps, {drawn} line drawings from photos, {len(stamps) - drawn} monograms")
+    stamps = [s for v in per.values() for s in v["stamps"]]
+    hand = sum(1 for s in stamps if s.get("art") == "hand")
+    log(f"written: {len(per)} municipalities, {len(stamps)} stamps, {hand} drawn by hand, {len(stamps) - hand} by type")
+
+
+def restyle():
+    """Redraw the published selection (viewer/stamps/GM*.json) without selecting again."""
+    per = {}
+    for f in sorted(os.listdir(OUT)):
+        if f.startswith("GM") and f.endswith(".json"):
+            j = json.load(open(f"{OUT}/{f}"))
+            per[j["gm"]] = {"name": j["name"], "stamps": j["stamps"]}
+    make_art([s for v in per.values() for s in v["stamps"]])
+    write(per)
+
+
+def main():
+    if "--restyle" in sys.argv:
+        return restyle()
+    picks = select()
+    tr = Transformer.from_crs(28992, 4326, always_xy=True)
+    stamps, per = [], {}
+    for code, (name, n, chosen) in picks.items():
+        for r in chosen:
+            lon, lat = tr.transform(r.x, r.yy)
+            s = {"id": r.qid, "gm": code, "place": name, "bags": r.bags, "ll": [round(lon, 6), round(lat, 6)],
+                 "name": r.en or r.nl, "name_nl": r.nl or r.en, "year": int(r.year), "era": int(r.era), "sl": int(r.sl),
+                 "wiki": r.nlwiki or r.enwiki or "", "wiki_en": r.enwiki or ""}
+            stamps.append(s)
+            per.setdefault(code, {"name": name, "quota": n, "stamps": []})["stamps"].append(s)
+    if "--no-art" not in sys.argv:
+        make_art(stamps)
+    write(per)
 
 
 if __name__ == "__main__":
