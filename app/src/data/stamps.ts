@@ -8,6 +8,8 @@ export interface Stamp {
   id: string; gm: string; bags: string[]; ll: [number, number];
   name: string; name_nl: string; year: number; era: number; sl: number;
   wiki: string; wiki_en: string; img?: string; style?: number; place?: string;
+  /** how the drawing was made (docs/stamps/approach.md) and the building type it was drawn as */
+  art?: 'hand' | 'type'; kind?: string;
   credit?: { author: string; license: string; license_url: string; source: string };
 }
 export interface CityStamps { gm: string; name: string; eras: string[]; stamps: Stamp[] }
