@@ -1,7 +1,7 @@
 // Where the data lives and how it is cut. Built by ../pipeline, hosted on Cloudflare R2.
 export const DATA = 'https://pub-6906f03443584a13a66fc2c26a45f448.r2.dev/v1';
 // bump after every data upload: busts browser and edge caches for all clients
-export const DATA_REV = 6;
+export const DATA_REV = 7;
 export const dataUrl = (path: string) => `${DATA}/${path}?r=${DATA_REV}`;
 
 // z14-15 buildings are split west to east into three archives (pipeline/p10_split_buildings.py).
