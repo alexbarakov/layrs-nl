@@ -32,7 +32,9 @@ const OTHER = '#dedbd3';
 
 export type Mode = 'periods' | 'monuments' | 'height';
 export interface LensPaint { groups: number[][] }   // building ids per lens group, in group order
-export interface MapState { mode: Mode; year: number; lens: LensPaint | null }
+export interface MapState { mode: Mode; year: number; lens: LensPaint | null; dim?: boolean }
+// a walk on the map: buildings fade so the route reads on top of them
+export const buildingOpacity = (s: MapState) => (s.dim ? 0.4 : 0.95);
 
 export function buildingColor(s: MapState): ExpressionSpecification {
   if (s.lens) {
@@ -66,7 +68,7 @@ export function buildingLayers(s: MapState): LayerSpecification[] {
     paint: {
       'fill-extrusion-color': buildingColor(s),
       'fill-extrusion-height': ['get', 'h'],
-      'fill-extrusion-opacity': 0.95,
+      'fill-extrusion-opacity': buildingOpacity(s),
     },
   }) as LayerSpecification);
 }

@@ -10,7 +10,7 @@ import { View } from 'react-native';
 import { municipalityAt } from '@/data/places';
 import { useJournal } from '@/data/stamps';
 import { getApp, setApp, useApp } from '@/data/store';
-import { BUILDING_LAYER_IDS, baseStyle, buildingColor, overviewFilter, yearFilter } from '@/data/style';
+import { BUILDING_LAYER_IDS, baseStyle, buildingColor, buildingOpacity, overviewFilter, yearFilter } from '@/data/style';
 
 import { OVERLAY_LAYERS, overlayData } from './overlay';
 import { useMapState } from './use-map-state';
@@ -69,7 +69,7 @@ export function LayrsMap() {
     return () => { ro.disconnect(); map.remove(); };
   }, []);
 
-  // mode, year, lens -> paint and filters
+  // mode, year, lens, walk -> paint and filters
   useEffect(() => {
     const map = mapRef.current; if (!map) return;
     const apply = () => {
@@ -77,6 +77,7 @@ export function LayrsMap() {
       for (const id of BUILDING_LAYER_IDS) {
         if (!map.getLayer(id)) continue;
         map.setPaintProperty(id, 'fill-extrusion-color', color as any);
+        map.setPaintProperty(id, 'fill-extrusion-opacity', buildingOpacity(state));
         map.setFilter(id, (f ?? null) as any);
       }
       if (map.getLayer('o')) map.setFilter('o', (overviewFilter(state.year) ?? null) as any);

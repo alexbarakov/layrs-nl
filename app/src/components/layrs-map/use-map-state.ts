@@ -1,4 +1,4 @@
-// What the map renders from the app state: building paint (mode, year, lens) and the overlay.
+// What the map renders from the app state: building paint (mode, year, lens, faded under a walk) and the overlay.
 import { useEffect, useMemo, useState } from 'react';
 
 import { lensGroups, loadLenses } from '@/data/places';
@@ -10,6 +10,7 @@ export function useMapState(): MapState {
   const year = useApp((s) => s.year);
   const lensId = useApp((s) => s.lensId);
   const code = useApp((s) => s.gm?.code);
+  const dim = useApp((s) => !!s.walk?.stops.length);
   const [lens, setLens] = useState<LensPaint | null>(null);
   useEffect(() => {
     let live = true;
@@ -20,5 +21,5 @@ export function useMapState(): MapState {
     });
     return () => { live = false; };
   }, [lensId, code]);
-  return useMemo(() => ({ mode, year, lens }), [mode, year, lens]);
+  return useMemo(() => ({ mode, year, lens, dim }), [mode, year, lens, dim]);
 }
