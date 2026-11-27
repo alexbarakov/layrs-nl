@@ -8,6 +8,7 @@ import type { LensPaint, MapState } from '@/data/style';
 export function useMapState(): MapState {
   const mode = useApp((s) => s.mode);
   const year = useApp((s) => s.year);
+  const yearFrom = useApp((s) => s.yearFrom);
   const lensId = useApp((s) => s.lensId);
   const code = useApp((s) => s.gm?.code);
   const dim = useApp((s) => !!s.walk?.stops.length);
@@ -21,5 +22,5 @@ export function useMapState(): MapState {
     });
     return () => { live = false; };
   }, [lensId, code]);
-  return useMemo(() => ({ mode, year, lens, dim }), [mode, year, lens, dim]);
+  return useMemo(() => ({ mode, year, yearFrom, lens, dim }), [mode, year, yearFrom, lens, dim]);
 }

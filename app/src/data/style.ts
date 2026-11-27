@@ -32,7 +32,7 @@ const OTHER = '#dedbd3';
 
 export type Mode = 'periods' | 'monuments' | 'height';
 export interface LensPaint { groups: number[][] }   // building ids per lens group, in group order
-export interface MapState { mode: Mode; year: number; lens: LensPaint | null; dim?: boolean }
+export interface MapState { mode: Mode; year: number; yearFrom?: number; lens: LensPaint | null; dim?: boolean }
 // a walk on the map: buildings fade so the route reads on top of them
 export const buildingOpacity = (s: MapState) => (s.dim ? 0.4 : 0.95);
 
@@ -49,14 +49,15 @@ export function buildingColor(s: MapState): ExpressionSpecification {
   }
   return s.mode === 'monuments' ? MONUMENT_COLOR : s.mode === 'height' ? HEIGHT_COLOR : PERIOD_COLOR;
 }
-export const yearFilter = (year: number): ExpressionSpecification | undefined =>
-  year >= 2026 ? undefined : ['all', ['>', ['get', 'y'], 0], ['<=', ['get', 'y'], year]];
+export const yearFilter = (year: number, from = 0): ExpressionSpecification | undefined =>
+  year >= 2026 && from <= 1300 ? undefined
+    : ['all', ['>', ['get', 'y'], 0], ['>=', ['get', 'y'], from <= 1300 ? 0 : from], ['<=', ['get', 'y'], year]];
 
 const BUILDING_SOURCES = [{ id: 'bl', minzoom: 12.5, maxzoom: 14 }, ...BUILDING_PARTS.map((p) => ({ id: p.id, minzoom: 14, maxzoom: 24 }))];
 export const BUILDING_LAYER_IDS = BUILDING_SOURCES.map((s) => `${s.id}-x`);
 
 export function buildingLayers(s: MapState): LayerSpecification[] {
-  const filter = yearFilter(s.year);
+  const filter = yearFilter(s.year, s.yearFrom);
   return BUILDING_SOURCES.map((src) => ({
     id: `${src.id}-x`,
     type: 'fill-extrusion',
@@ -72,8 +73,8 @@ export function buildingLayers(s: MapState): LayerSpecification[] {
     },
   }) as LayerSpecification);
 }
-export const overviewFilter = (year: number): ExpressionSpecification | undefined =>
-  year >= 2026 ? undefined : ['<=', ['get', 'y'], year];
+export const overviewFilter = (year: number, from = 0): ExpressionSpecification | undefined =>
+  year >= 2026 && from <= 1300 ? undefined : ['all', ['>=', ['get', 'y'], from <= 1300 ? 0 : from], ['<=', ['get', 'y'], year]];
 
 export function baseStyle(): StyleSpecification {
   const base = (id: string, type: string, layer: string, o: object) => ({ id, type, source: 'base', 'source-layer': layer, ...o });

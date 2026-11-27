@@ -73,14 +73,14 @@ export function LayrsMap() {
   useEffect(() => {
     const map = mapRef.current; if (!map) return;
     const apply = () => {
-      const color = buildingColor(state), f = yearFilter(state.year);
+      const color = buildingColor(state), f = yearFilter(state.year, state.yearFrom);
       for (const id of BUILDING_LAYER_IDS) {
         if (!map.getLayer(id)) continue;
         map.setPaintProperty(id, 'fill-extrusion-color', color as any);
         map.setPaintProperty(id, 'fill-extrusion-opacity', buildingOpacity(state));
         map.setFilter(id, (f ?? null) as any);
       }
-      if (map.getLayer('o')) map.setFilter('o', (overviewFilter(state.year) ?? null) as any);
+      if (map.getLayer('o')) map.setFilter('o', (overviewFilter(state.year, state.yearFrom) ?? null) as any);
     };
     if (map.isStyleLoaded()) apply(); else map.once('load', apply);
   }, [state]);

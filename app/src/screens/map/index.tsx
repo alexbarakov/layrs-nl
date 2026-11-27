@@ -1,6 +1,5 @@
 // Map tab (iteration 3): the map fills the screen. Place on the top left; layers, map settings and "me" on the right,
 // zoom below them; at the bottom, what colours the buildings and the year. Everything else opens on demand.
-import { Host, Slider } from '@expo/ui';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useRef, useState } from 'react';
@@ -10,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tabBarSpace } from '@/components/app-tabs';
 import { buildingSheetOpen } from '@/screens/building';
 import { Chip } from '@/components/chip';
+import { RangeSlider } from '@/components/range-slider';
 import { Icon, IconTile } from '@/components/icon';
 import { LayrsMap } from '@/components/layrs-map';
 import { Swatches } from '@/components/swatches';
@@ -24,7 +24,9 @@ import { startLocation } from '@/hooks/use-location';
 import { colors, font, radius, shadow, spacing, type } from '@/theme';
 import { meters, plural, yearLabel } from '@/utils/format';
 
-const QUICK_YEARS = [1500, 1650, 1700, 1850, 1940];
+const QUICK: [string, number, number][] = [['до 1600', 1300, 1600], ['Золотой век', 1600, 1700], ['1700–1850', 1700, 1850], ['1850–1940', 1850, 1940], ['после войны', 1945, 2026]];
+const rangeLabel = (from: number, to: number) =>
+  from <= YEAR_MIN && to >= YEAR_MAX ? 'Все годы' : from <= YEAR_MIN ? `до ${to}` : to >= YEAR_MAX ? `с ${from}` : `${from}–${to}`;
 
 export function MapScreen() {
   const insets = useSafeAreaInsets();
@@ -33,6 +35,7 @@ export function MapScreen() {
   const zoom = useApp((s) => s.view.zoom);
   const mode = useApp((s) => s.mode);
   const year = useApp((s) => s.year);
+  const yearFrom = useApp((s) => s.yearFrom);
   const lensId = useApp((s) => s.lensId);
   const selected = useApp((s) => s.selected);
   const stampId = useApp((s) => s.stampId);
@@ -143,7 +146,7 @@ export function MapScreen() {
           </Pressable>
         ) : null}
         <WalkStrip />
-        {timeOpen ? <TimeCard year={year} onClose={() => { setTimeOpen(false); setApp({ year: YEAR_MAX }); }} /> : (
+        {timeOpen ? <TimeCard from={yearFrom} to={year} onClose={() => setTimeOpen(false)} /> : (
           <View style={styles.row}>
             {lens ? (
               <View style={[styles.pill, { flexShrink: 1, paddingLeft: 8 }]}>
@@ -166,10 +169,10 @@ export function MapScreen() {
                 <Text style={styles.pillText}>{base.title}</Text>
               </Pressable>
             )}
-            <Pressable onPress={() => setTimeOpen(true)} accessibilityRole="button" accessibilityLabel={`Год: ${year >= YEAR_MAX ? 'сейчас' : year}. Показать город в другом году`}
+            <Pressable onPress={() => setTimeOpen(true)} accessibilityRole="button" accessibilityLabel={`Годы постройки: ${rangeLabel(yearFrom, year)}. Изменить`}
               style={({ pressed }) => [styles.pill, pressed && { opacity: 0.8 }]}>
               <Icon name="hourglass" size={18} />
-              <Text style={[styles.pillText, { fontVariant: ['tabular-nums'] }]}>{year >= YEAR_MAX ? 'Сейчас' : year}</Text>
+              <Text style={[styles.pillText, { fontVariant: ['tabular-nums'] }]}>{rangeLabel(yearFrom, year)}</Text>
             </Pressable>
           </View>
         )}
@@ -178,37 +181,39 @@ export function MapScreen() {
   );
 }
 
-// The year card: the city as it stood in a given year, quick years, and the growth of the city played from 1300 to now.
-function TimeCard({ year, onClose }: { year: number; onClose: () => void }) {
+// The years card: which buildings to show, by the year they were built — a range with two thumbs, quick periods,
+// and the growth of the city played from 1300 to now.
+function TimeCard({ from, to, onClose }: { from: number; to: number; onClose: () => void }) {
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const [playing, setPlaying] = useState(false);
   useEffect(() => () => { if (timer.current) clearInterval(timer.current); }, []);
   const play = () => {
     if (timer.current) { clearInterval(timer.current); timer.current = null; setPlaying(false); return; }
-    let y = YEAR_MIN;
+    let y = YEAR_MIN + 50;
     setPlaying(true);
+    setApp({ yearFrom: YEAR_MIN, year: y });
     timer.current = setInterval(() => {
       y += y < 1800 ? 25 : 8;
       if (y >= YEAR_MAX) { y = YEAR_MAX; clearInterval(timer.current!); timer.current = null; setPlaying(false); }
       setApp({ year: y });
     }, 120);
   };
+  const all = from <= YEAR_MIN && to >= YEAR_MAX;
   return (
     <View style={[styles.card, { gap: 12 }]}>
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <View>
-          <Text style={type.caption}>Город в году</Text>
-          <Text style={styles.year}>{year >= YEAR_MAX ? 'сейчас' : year}</Text>
+          <Text style={type.caption}>Построены</Text>
+          <Text style={styles.year}>{all ? 'все годы' : `${from <= YEAR_MIN ? 'до' : from} – ${to >= YEAR_MAX ? 'сейчас' : to}`}</Text>
         </View>
-        <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Закрыть и вернуться в сейчас" style={styles.round}>
-          <Icon name="close" size={16} width={2.4} />
+        <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Свернуть" style={styles.round}>
+          <Icon name="down" size={16} width={2.4} />
         </Pressable>
       </View>
-      <Host matchContents={{ vertical: true }}>
-        <Slider value={year} min={YEAR_MIN} max={YEAR_MAX} step={1} onValueChange={(v) => setApp({ year: Math.round(v) })} />
-      </Host>
+      <RangeSlider min={YEAR_MIN} max={YEAR_MAX} from={from} to={to} onChange={(f, t) => setApp({ yearFrom: f, year: t })} />
       <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-        {QUICK_YEARS.map((y) => <Chip key={y} label={String(y)} on={year === y} onPress={() => setApp({ year: y })} />)}
+        {QUICK.map(([label, f, t]) => <Chip key={label} label={label} on={from === f && to === t} onPress={() => setApp({ yearFrom: f, year: t })} />)}
+        {!all ? <Chip label="Все годы" onPress={() => setApp({ yearFrom: YEAR_MIN, year: YEAR_MAX })} /> : null}
       </View>
       <Pressable onPress={play} accessibilityRole="button" style={({ pressed }) => [styles.play, pressed && { opacity: 0.85 }]}>
         <Text style={styles.playText}>{playing ? 'Остановить' : 'Рост города: 1300 → сейчас'}</Text>
@@ -293,7 +298,7 @@ const styles = StyleSheet.create({
   pillClose: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.chip, alignItems: 'center', justifyContent: 'center' },
   card: { borderRadius: 20, padding: 14, ...card },
   nearby: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 2 },
-  year: { fontFamily: font.bold, fontSize: 32, color: colors.ink, fontVariant: ['tabular-nums'] },
+  year: { fontFamily: font.bold, fontSize: 28, color: colors.ink, fontVariant: ['tabular-nums'] },
   round: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.chip, alignItems: 'center', justifyContent: 'center' },
   play: { height: 46, borderRadius: 23, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
   playText: { color: colors.card, fontSize: 15, fontWeight: '600' },

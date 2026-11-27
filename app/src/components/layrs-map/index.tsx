@@ -35,7 +35,7 @@ export function LayrsMap() {
   const journal = useJournal();
   const layers = useMemo(() => buildingLayers(state), [state]);
   const overlay = useMemo(() => overlayData({ walk, walkStep, me, stampsHere, showStamps }, journal), [walk, walkStep, me, stampsHere, showStamps, journal]);
-  const oFilter = overviewFilter(state.year);
+  const oFilter = overviewFilter(state.year, state.yearFrom);
 
   useEffect(() => {
     if (camera.seq === 0) return;

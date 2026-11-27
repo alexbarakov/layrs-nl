@@ -90,11 +90,11 @@ function StampsCard({ compact }: { compact?: boolean }) {
     <Pressable onPress={() => setApp({ showStamps: !on })} accessibilityRole="switch" accessibilityState={{ checked: on }}
       accessibilityLabel={`Печати: ключевые здания города, ${here.length}`}
       style={({ pressed }) => [styles.card, styles.stamps, compact && { width: '100%', minHeight: 0 }, on && styles.stampsOn, pressed && { opacity: 0.9 }]}>
-      {on ? <Text style={[styles.badge, { backgroundColor: colors.card, color: colors.delft }]}>на карте</Text> : null}
+      {on ? <Text style={[styles.badge, { backgroundColor: colors.delft }]}>на карте</Text> : null}
       <View style={styles.stampsIcon}><Icon name="stamp" size={24} color={colors.delft} width={1.9} /></View>
-      <Text style={[styles.cardTitle, { color: colors.card }]}>Печати</Text>
+      <Text style={[styles.cardTitle, { color: '#163a70' }]}>Печати</Text>
       <Text style={styles.stampsSub}>Ключевые здания города. Соберите печати в коллекцию</Text>
-      <Text style={[styles.count, { color: colors.card }]}>{here.length ? `${plBuildings(here.length)} · у вас ${got}` : 'здесь печатей нет'}</Text>
+      <Text style={styles.count}>{here.length ? `${plBuildings(here.length)} · у вас ${got}` : 'здесь печатей нет'}</Text>
     </Pressable>
   );
 }
@@ -189,10 +189,10 @@ function NoLayers({ name, onGo, onClose }: { name?: string; onGo: (c: [number, n
 
 const styles = StyleSheet.create({
   wrap: { padding: spacing.md, paddingTop: spacing.lg, gap: spacing.sm },
-  stamps: { backgroundColor: colors.delft, borderColor: colors.delft },
-  stampsOn: { borderWidth: 3, borderColor: '#0f2f60' },
+  stamps: { backgroundColor: '#dce7f5', borderColor: '#b7cbe6' },
+  stampsOn: { borderWidth: 2, borderColor: colors.delft },
   stampsIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
-  stampsSub: { fontSize: 12, lineHeight: 16, color: 'rgba(255,252,245,0.85)' },
+  stampsSub: { fontSize: 12, lineHeight: 16, color: '#3d5578' },
   head: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   round: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.chip, alignItems: 'center', justifyContent: 'center' },
   search: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 42, paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.chip, marginTop: spacing.xs },

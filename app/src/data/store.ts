@@ -1,7 +1,7 @@
 // App state shared by the tabs. Small on purpose: one store, read through useApp(selector).
 import { useSyncExternalStore } from 'react';
 
-import { HOME, YEAR_MAX } from './config';
+import { HOME, YEAR_MAX, YEAR_MIN } from './config';
 import type { Stamp } from './stamps';
 import type { Mode } from './style';
 
@@ -17,7 +17,8 @@ export interface AppState {
   view: { center: [number, number]; zoom: number; pitch?: number; bearing?: number };   // last reported by the map
   camera: Camera;                                      // where the map should go (seq bumps a move)
   mode: Mode;
-  year: number;
+  year: number;                                        // last year shown (to)
+  yearFrom: number;                                    // first year shown
   lensId: string | null;                                // active lens in the current city
   gm: { code: string; name: string; province: string } | null;
   selected: Building | null;
@@ -36,6 +37,7 @@ let state: AppState = {
   camera: { center: HOME.center, zoom: HOME.zoom, seq: 0 },
   mode: 'periods',
   year: YEAR_MAX,
+  yearFrom: YEAR_MIN,
   lensId: null,
   gm: null,
   selected: null,
